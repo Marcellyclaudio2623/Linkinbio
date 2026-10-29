@@ -1128,8 +1128,7 @@
          - Critères : une réponse (bouton ou ligne du menu déroulant) avec
            data-bloquant="raison" rend la personne non éligible et affiche
            la raison. Ajoutez ou retirez l'attribut pour changer les critères.
-           Actuellement bloquants : « Sans emploi », « Moins de 5 h »,
-           « Plus tard, je n'ai pas de date ».
+           Actuellement bloquant : « Sans emploi » uniquement.
          - Historique : data-historique = l'URL de l'application Web Google
            Apps Script (voir outils/historique-google-sheets.gs). Chaque envoi
            ajoute alors une ligne dans la feuille Google Sheets. Vide = rien
@@ -1200,8 +1199,7 @@
           <fieldset class="question" data-resume="Temps par semaine">
             <legend><span class="question__num">05</span>Combien de temps peux-tu y consacrer par semaine&nbsp;?</legend>
             <div class="choix">
-              <label><input type="radio" name="temps" value="Moins de 5 h" required
-                            data-bloquant="Il faut pouvoir y consacrer au moins 5 heures par semaine." /><span>Moins de 5 h</span></label>
+              <label><input type="radio" name="temps" value="Moins de 5 h" required /><span>Moins de 5 h</span></label>
               <label><input type="radio" name="temps" value="5 à 10 h" /><span>5 à 10 h</span></label>
               <label><input type="radio" name="temps" value="10 à 20 h" /><span>10 à 20 h</span></label>
               <label><input type="radio" name="temps" value="Plus de 20 h" /><span>Plus de 20 h</span></label>
@@ -1213,7 +1211,7 @@
             <div class="choix">
               <label><input type="radio" name="delai" value="Dès maintenant" required /><span>Dès maintenant</span></label>
               <label><input type="radio" name="delai" value="Dans les 3 mois" /><span>Dans les 3 mois</span></label>
-              <label><input type="radio" name="delai" value="Plus tard, sans date" data-bloquant="Les appels sont réservés aux personnes qui veulent avancer dans les 3 prochains mois." /><span>Plus tard, je n'ai pas de date</span></label>
+              <label><input type="radio" name="delai" value="Plus tard, sans date" /><span>Plus tard, je n'ai pas de date</span></label>
             </div>
           </fieldset>
 
