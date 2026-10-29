@@ -1117,6 +1117,10 @@
          - Critères : une réponse avec data-bloquant="raison" rend la
            personne non éligible et affiche la raison. Ajoutez ou retirez
            l'attribut pour changer les critères.
+         - Historique : data-historique = l'URL de l'application Web Google
+           Apps Script (voir outils/historique-google-sheets.gs). Chaque envoi
+           ajoute alors une ligne dans la feuille Google Sheets. Vide = rien
+           n'est envoyé ni enregistré.
          ===================================================== -->
     <section class="appel" aria-labelledby="titre-appel">
       <h2 class="label reveal" id="titre-appel" style="--d: 3">// Réserver un appel</h2>
@@ -1135,7 +1139,8 @@
         <noscript><p class="mention">// Active JavaScript pour vérifier ton éligibilité, ou écris-moi par email.</p></noscript>
 
         <form class="formulaire" id="eligibilite" hidden
-              data-calendly="https://calendly.com/claudiomarcellyb/nouvelle-reunion">
+              data-calendly="https://calendly.com/claudiomarcellyb/nouvelle-reunion"
+              data-historique="">
 
           <fieldset class="question" data-resume="Situation">
             <legend><span class="question__num">01</span>Où en es-tu aujourd'hui ?</legend>
@@ -1186,8 +1191,16 @@
             <input type="email" id="email" name="email" autocomplete="email" inputmode="email" required />
           </div>
 
+          <!-- Piège à robots : invisible pour les visiteurs, les robots le remplissent -->
+          <div class="sr-only" aria-hidden="true">
+            <label for="site">Ne pas remplir</label>
+            <input type="text" id="site" name="site" tabindex="-1" autocomplete="off" />
+          </div>
+
           <button class="bouton" type="submit">Voir si je suis éligible</button>
-          <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Tes réponses restent dans ton navigateur. Elles ne sont transmises à Calendly que si tu réserves un créneau.</p>
+          <!-- Une seule de ces deux mentions s'affiche, selon que l'historique est activé ou non -->
+          <p class="mention" data-mention="local"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Tes réponses restent dans ton navigateur. Elles ne sont transmises à Calendly que si tu réserves un créneau.</p>
+          <p class="mention" data-mention="historique" hidden><i class="fa-solid fa-lock" aria-hidden="true"></i> // Tes réponses sont transmises à Claudio pour préparer l'appel ou te recontacter, et à Calendly si tu réserves un créneau.</p>
         </form>
 
         <div class="resultat" id="resultat" hidden tabindex="-1" aria-live="polite"></div>
@@ -1377,15 +1390,49 @@
       });
     })();
 
-    /* Formulaire d'éligibilité : tout se passe dans le navigateur.
+    /* Formulaire d'éligibilité : le calcul se fait dans le navigateur.
        Éligible  → lien Calendly pré-rempli (prénom, email, réponses en 1re question).
-       Sinon     → raisons affichées + liens vers les contenus gratuits. */
+       Sinon     → raisons affichées + liens vers les contenus gratuits.
+       Si data-historique est rempli, chaque envoi est aussi enregistré
+       dans la feuille Google Sheets (voir outils/historique-google-sheets.gs). */
     (function () {
       var ouvrir = document.getElementById('ouvrir-eligibilite');
       var form = document.getElementById('eligibilite');
       var resultat = document.getElementById('resultat');
       var intro = document.getElementById('appel-intro');
       if (!ouvrir || !form || !resultat) return;
+
+      var historique = form.dataset.historique;
+      if (historique) {
+        form.querySelector('[data-mention="local"]').hidden = true;
+        form.querySelector('[data-mention="historique"]').hidden = false;
+      }
+
+      function reponse(nom) {
+        var choix = form.querySelector('input[name="' + nom + '"]:checked');
+        return choix ? choix.value : '';
+      }
+
+      // Envoi "sans attendre" : si l'enregistrement échoue, le visiteur
+      // voit quand même son résultat.
+      function enregistrer(prenom, email, raisons) {
+        if (!historique || form.elements.site.value) return;   // robot : on ignore
+        fetch(historique, {
+          method: 'POST',
+          mode: 'no-cors',
+          keepalive: true,
+          body: new URLSearchParams({
+            prenom: prenom,
+            email: email,
+            situation: reponse('situation'),
+            budget: reponse('budget'),
+            temps: reponse('temps'),
+            delai: reponse('delai'),
+            eligible: raisons.length ? 'Non' : 'Oui',
+            raisons: raisons.join(' / ')
+          })
+        }).catch(function () {});
+      }
 
       function afficherFormulaire() {
         ouvrir.hidden = true;
@@ -1411,6 +1458,8 @@
           form.querySelectorAll('fieldset[data-resume]'),
           function (question) { return question.dataset.resume + ' : ' + question.querySelector('input:checked').value; }
         ).join(' | ');
+
+        enregistrer(prenom, email, raisons);
 
         var modele = document.getElementById(raisons.length ? 'modele-refus' : 'modele-eligible');
         var contenu = modele.content.cloneNode(true);
