@@ -1515,7 +1515,8 @@
         var calendly = contenu.querySelector('[data-champ="calendly"]');
         if (calendly) {
           var url = new URL(form.dataset.calendly);
-          url.searchParams.set('name', prenom);
+          url.searchParams.set('name', prenom);         // formulaire Calendly à un seul champ « Nom »
+          url.searchParams.set('first_name', prenom);   // formulaire avec « Prénom » + « Nom de famille »
           url.searchParams.set('email', email);
           url.searchParams.set('a1', resume);
           calendly.href = url.toString();
