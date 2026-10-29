@@ -34,7 +34,9 @@ var COLONNES = [
   ['Prénom', 'prenom'],
   ['Email', 'email'],
   ['Situation', 'situation'],
+  ['Source de revenus', 'revenus'],
   ['Budget', 'budget'],
+  ['Prêt à investir', 'investir'],
   ['Temps par semaine', 'temps'],
   ["Passage à l'action", 'delai'],
   ['Éligible', 'eligible'],
@@ -59,9 +61,10 @@ function doPost(e) {
     feuille.appendRow(ligne);
 
     if (EMAIL_ALERTE) {
+      var valeur = function (champ) { return ligne[COLONNES.map(function (c) { return c[1]; }).indexOf(champ)]; };
       MailApp.sendEmail(
         EMAIL_ALERTE,
-        'Formulaire Link in Bio : ' + ligne[1] + ' (éligible : ' + ligne[7] + ')',
+        'Formulaire Link in Bio : ' + valeur('prenom') + ' (éligible : ' + valeur('eligible') + ')',
         COLONNES.map(function (c, i) { return c[0] + ' : ' + ligne[i]; }).join('\n') +
           '\n\nHistorique complet : ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
       );

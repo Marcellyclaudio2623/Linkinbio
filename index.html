@@ -490,13 +490,33 @@
     }
 
     .question { border: 0; min-width: 0; }   /* min-width : évite le débordement des fieldset */
-    .question legend {
+    .question legend,
+    .question__titre {
+      display: block;
       padding: 0;
       margin-bottom: 10px;
       font-weight: 800;
       font-size: 1rem;
       line-height: 1.3;
     }
+
+    /* Menu déroulant, même trait que les champs, flèche dessinée */
+    .liste {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 44px 12px 14px;
+      border: var(--bord) solid var(--encre);
+      border-radius: 12px;
+      background: var(--carte) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Cpath d='M2 2l6 6 6-6' fill='none' stroke='%23141414' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 14px 9px;
+      color: var(--encre);
+      font: 600 1rem/1.2 var(--sans);   /* 16px : pas de zoom auto sur iPhone */
+      cursor: pointer;
+    }
+    .liste:invalid { color: var(--gris); }     /* "Choisis dans la liste" tant que rien n'est choisi */
+    .liste option { color: var(--encre); }
+    .liste:focus-visible { outline: 3px dashed var(--rouge); outline-offset: 2px; }
     .question__num {
       font-family: var(--mono);
       font-weight: 600;
@@ -1114,9 +1134,11 @@
          - data-calendly = l'adresse de l'événement Calendly.
            Dans Calendly, ajoutez une question (1re question personnalisée)
            du type « Réponses au questionnaire » : elle recevra les réponses.
-         - Critères : une réponse avec data-bloquant="raison" rend la
-           personne non éligible et affiche la raison. Ajoutez ou retirez
-           l'attribut pour changer les critères.
+         - Critères : une réponse (bouton ou ligne du menu déroulant) avec
+           data-bloquant="raison" rend la personne non éligible et affiche
+           la raison. Ajoutez ou retirez l'attribut pour changer les critères.
+           Actuellement bloquants : « Sans emploi », « Moins de 5 h »,
+           « Plus tard, je n'ai pas de date ».
          - Historique : data-historique = l'URL de l'application Web Google
            Apps Script (voir outils/historique-google-sheets.gs). Chaque envoi
            ajoute alors une ligne dans la feuille Google Sheets. Vide = rien
@@ -1129,7 +1151,7 @@
         <span class="pastille">Appel découverte</span>
         <div class="appel__intro" id="appel-intro">
           <h3 class="appel__titre">Un projet e-commerce ? <em>Parlons-en.</em></h3>
-          <p class="appel__texte">Réponds à 4 questions rapides. Si ton profil correspond, tu choisis directement un créneau dans mon agenda.</p>
+          <p class="appel__texte">Réponds à 6 questions rapides. Si ton profil correspond, tu choisis directement un créneau dans mon agenda.</p>
         </div>
 
         <button class="bouton" type="button" id="ouvrir-eligibilite"
@@ -1143,7 +1165,7 @@
               data-historique="">
 
           <fieldset class="question" data-resume="Situation">
-            <legend><span class="question__num">01</span>Où en es-tu aujourd'hui ?</legend>
+            <legend><span class="question__num">01</span>Où en es-tu aujourd'hui&nbsp;?</legend>
             <div class="choix">
               <label><input type="radio" name="situation" value="Je pars de zéro" required /><span>Je pars de zéro</span></label>
               <label><input type="radio" name="situation" value="Boutique sans ventes" /><span>J'ai une boutique, pas encore de ventes</span></label>
@@ -1151,19 +1173,41 @@
             </div>
           </fieldset>
 
+          <div class="question" data-resume="Source de revenus">
+            <label class="question__titre" for="revenus"><span class="question__num">02</span>Quelle est ta principale source de revenus aujourd'hui&nbsp;?</label>
+            <select class="liste" id="revenus" name="revenus" required>
+              <option value="" disabled selected>Choisis dans la liste</option>
+              <option>Salarié(e)</option>
+              <option>Indépendant(e) / freelance</option>
+              <option>Chef d'entreprise</option>
+              <option>Étudiant(e)</option>
+              <option>Retraité(e)</option>
+              <option data-bloquant="Les appels sont réservés aux personnes qui ont déjà une source de revenus pour financer leur projet.">Sans emploi</option>
+              <option>Autre</option>
+            </select>
+          </div>
+
           <fieldset class="question" data-resume="Budget">
-            <legend><span class="question__num">02</span>Quel budget peux-tu investir pour lancer ou développer ta boutique (pub, outils) ?</legend>
+            <legend><span class="question__num">03</span>Quel budget peux-tu investir pour lancer ou développer ta boutique (pub, outils)&nbsp;?</legend>
             <div class="choix">
-              <label><input type="radio" name="budget" value="Moins de 300 €" required
-                            data-bloquant="Prévois au moins 300 € pour tester tes premiers produits (publicité, outils)." /><span>Moins de 300 €</span></label>
+              <label><input type="radio" name="budget" value="Moins de 300 €" required /><span>Moins de 300 €</span></label>
               <label><input type="radio" name="budget" value="300 à 1 000 €" /><span>300 à 1 000 €</span></label>
               <label><input type="radio" name="budget" value="1 000 à 3 000 €" /><span>1 000 à 3 000 €</span></label>
               <label><input type="radio" name="budget" value="Plus de 3 000 €" /><span>Plus de 3 000 €</span></label>
             </div>
           </fieldset>
 
+          <fieldset class="question" data-resume="Prêt à investir">
+            <legend><span class="question__num">04</span>Es-tu prêt(e) à investir dans ton projet (outils, publicité, formation…)&nbsp;?</legend>
+            <div class="choix">
+              <label><input type="radio" name="investir" value="Oui" required /><span>Oui, je suis prêt(e)</span></label>
+              <label><input type="radio" name="investir" value="Oui, petit budget" /><span>Oui, avec un petit budget</span></label>
+              <label><input type="radio" name="investir" value="Pas pour l'instant" /><span>Pas pour l'instant</span></label>
+            </div>
+          </fieldset>
+
           <fieldset class="question" data-resume="Temps par semaine">
-            <legend><span class="question__num">03</span>Combien de temps peux-tu y consacrer par semaine ?</legend>
+            <legend><span class="question__num">05</span>Combien de temps peux-tu y consacrer par semaine&nbsp;?</legend>
             <div class="choix">
               <label><input type="radio" name="temps" value="Moins de 5 h" required
                             data-bloquant="Il faut pouvoir y consacrer au moins 5 heures par semaine." /><span>Moins de 5 h</span></label>
@@ -1174,7 +1218,7 @@
           </fieldset>
 
           <fieldset class="question" data-resume="Passage à l'action">
-            <legend><span class="question__num">04</span>Quand veux-tu passer à l'action ?</legend>
+            <legend><span class="question__num">06</span>Quand veux-tu passer à l'action&nbsp;?</legend>
             <div class="choix">
               <label><input type="radio" name="delai" value="Dès maintenant" required /><span>Dès maintenant</span></label>
               <label><input type="radio" name="delai" value="Dans les 3 mois" /><span>Dans les 3 mois</span></label>
@@ -1408,9 +1452,9 @@
         form.querySelector('[data-mention="historique"]').hidden = false;
       }
 
+      // Valeur choisie pour une question (bouton radio ou menu déroulant)
       function reponse(nom) {
-        var choix = form.querySelector('input[name="' + nom + '"]:checked');
-        return choix ? choix.value : '';
+        return form.elements[nom] ? form.elements[nom].value : '';
       }
 
       // Envoi "sans attendre" : si l'enregistrement échoue, le visiteur
@@ -1425,7 +1469,9 @@
             prenom: prenom,
             email: email,
             situation: reponse('situation'),
+            revenus: reponse('revenus'),
             budget: reponse('budget'),
+            investir: reponse('investir'),
             temps: reponse('temps'),
             delai: reponse('delai'),
             eligible: raisons.length ? 'Non' : 'Oui',
@@ -1450,13 +1496,17 @@
         var prenom = form.elements.prenom.value.trim();
         var email = form.elements.email.value.trim();
 
+        // ":checked" vise aussi bien les boutons cochés que la ligne choisie du menu
         var raisons = Array.prototype.map.call(
-          form.querySelectorAll('input:checked[data-bloquant]'),
+          form.querySelectorAll('[data-bloquant]:checked'),
           function (choix) { return choix.dataset.bloquant; }
         );
         var resume = Array.prototype.map.call(
-          form.querySelectorAll('fieldset[data-resume]'),
-          function (question) { return question.dataset.resume + ' : ' + question.querySelector('input:checked').value; }
+          form.querySelectorAll('[data-resume]'),
+          function (question) {
+            var champ = question.querySelector('input, select');
+            return question.dataset.resume + ' : ' + reponse(champ.name);
+          }
         ).join(' | ');
 
         enregistrer(prenom, email, raisons);
