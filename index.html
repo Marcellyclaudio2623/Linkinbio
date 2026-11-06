@@ -574,6 +574,10 @@
     }
     .moyen-info[hidden] { display: none; }
     .moyen-info--autre { background: var(--bleu); }
+    .moyen-info > * { min-width: 0; }
+    .moyen-info__label { display: block; margin-bottom: 2px; font: 700 0.8125rem/1.2 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+    .moyen-info__etapes { display: grid; gap: 6px; padding-left: 1.3em; }
+    .moyen-info__etapes li::marker { font-family: var(--mono); font-weight: 700; }
     .moyen-info__numero {
       font: 800 1.5rem/1.1 var(--mono);
       letter-spacing: 0.02em;
@@ -1616,6 +1620,7 @@
             <div class="choix">
               <label><input type="radio" name="moyen" value="Orange Money" required /><span>Orange Money</span></label>
               <label><input type="radio" name="moyen" value="MVola" /><span>MVola</span></label>
+              <label><input type="radio" name="moyen" value="Transfert depuis l'étranger" /><span>Je suis à l'étranger</span></label>
               <label><input type="radio" name="moyen" value="Virement bancaire" /><span>Je n'ai ni l'un ni l'autre</span></label>
             </div>
           </fieldset>
@@ -1630,6 +1635,18 @@
             <p>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par MVola au nom de <strong>Claudio Marcelly</strong>&nbsp;:</p>
             <p class="moyen-info__numero">034&nbsp;22&nbsp;337&nbsp;84</p>
             <button class="bouton bouton--clair" type="button" data-copier="0342233784"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le numéro</button>
+          </div>
+          <div class="moyen-info moyen-info--autre" data-moyen="Transfert depuis l'étranger" hidden>
+            <p><strong>Tu es hors de Madagascar&nbsp;?</strong> Paie avec une application de transfert vers le mobile money malgache, par exemple <strong>Taptap Send</strong>&nbsp;:</p>
+            <ol class="moyen-info__etapes">
+              <li>Choisis le pays <strong>Madagascar</strong>, puis <strong>MVola</strong> ou <strong>Orange Money</strong> (selon ce que l'application propose).</li>
+              <li>Envoie au nom de <strong>Claudio Marcelly</strong>, sur l'un de ces numéros&nbsp;:</li>
+            </ol>
+            <p class="moyen-info__numero"><span class="moyen-info__label">MVola</span>034&nbsp;22&nbsp;337&nbsp;84</p>
+            <button class="bouton bouton--clair" type="button" data-copier="+261342233784"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le numéro MVola</button>
+            <p class="moyen-info__numero"><span class="moyen-info__label">Orange Money</span>032&nbsp;79&nbsp;100&nbsp;07</p>
+            <button class="bouton bouton--clair" type="button" data-copier="+261327910007"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le numéro Orange Money</button>
+            <p>Le montant <strong>reçu</strong> doit être de <strong>100&nbsp;000&nbsp;Ar</strong> (les frais de l'application sont à ta charge). Ensuite, envoie la capture du transfert ci-dessous.</p>
           </div>
           <div class="moyen-info moyen-info--autre" data-moyen="Virement bancaire" hidden>
             <p><strong>Pas d'Orange Money ni de MVola&nbsp;?</strong> Envoie-moi un WhatsApp ou un email&nbsp;: on trouve une autre solution, ou je t'envoie mes coordonnées pour un <strong>virement bancaire</strong>.</p>
@@ -2120,11 +2137,14 @@
             bloc.hidden = bloc.dataset.moyen !== radio.value;
           });
           var virement = radio.value === 'Virement bancaire';
-          titreNumero.textContent = virement ? 'Nom du compte qui a payé' : 'Numéro utilisé pour payer';
-          form.elements.numero.type = virement ? 'text' : 'tel';
-          form.elements.numero.setAttribute('autocomplete', virement ? 'name' : 'tel');
-          form.elements.numero.setAttribute('inputmode', virement ? 'text' : 'tel');
-          form.elements.reference.placeholder = virement ? 'Sur le reçu du virement' : 'Dans le SMS de confirmation';
+          var etranger = radio.value === "Transfert depuis l'étranger";
+          titreNumero.textContent = virement ? 'Nom du compte qui a payé'
+            : (etranger ? 'Application utilisée et ton nom (ex. : Taptap Send, Jean Dupont)' : 'Numéro utilisé pour payer');
+          form.elements.numero.type = virement || etranger ? 'text' : 'tel';
+          form.elements.numero.setAttribute('autocomplete', virement || etranger ? 'off' : 'tel');
+          form.elements.numero.setAttribute('inputmode', virement || etranger ? 'text' : 'tel');
+          form.elements.reference.placeholder = virement ? 'Sur le reçu du virement'
+            : (etranger ? 'Dans l\'application, sur le reçu du transfert' : 'Dans le SMS de confirmation');
           if (suite) suite.hidden = false;
         });
       });
