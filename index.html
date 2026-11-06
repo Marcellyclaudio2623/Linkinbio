@@ -1351,7 +1351,8 @@
          - Critères : une réponse (bouton ou ligne du menu déroulant) avec
            data-bloquant="raison" rend la personne non éligible et affiche
            la raison. Ajoutez ou retirez l'attribut pour changer les critères.
-           Actuellement bloquant : « Sans emploi » uniquement.
+           Actuellement bloquants : « Sans emploi » et « Étudiant(e) sans revenus »
+           (un étudiant n'est éligible que s'il a un job ou des revenus).
          - Historique : data-historique = l'URL de l'application Web Google
            Apps Script (voir outils/historique-google-sheets.gs). Chaque envoi
            ajoute alors une ligne dans la feuille Google Sheets. Vide = rien
@@ -1393,7 +1394,8 @@
               <option>Salarié(e)</option>
               <option>Indépendant(e) / freelance</option>
               <option>Chef d'entreprise</option>
-              <option>Étudiant(e)</option>
+              <option>Étudiant(e) avec un job ou des revenus</option>
+              <option data-bloquant="Les appels sont réservés aux personnes qui ont déjà une source de revenus pour financer leur projet.">Étudiant(e) sans revenus</option>
               <option>Retraité(e)</option>
               <option data-bloquant="Les appels sont réservés aux personnes qui ont déjà une source de revenus pour financer leur projet.">Sans emploi</option>
               <option>Autre</option>
