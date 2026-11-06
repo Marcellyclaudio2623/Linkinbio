@@ -1423,15 +1423,23 @@
       <div class="appel__carte reveal" style="--d: 5">
         <span class="pastille pastille--bleu">Formation 1&nbsp;h&nbsp;30 · 100&nbsp;000&nbsp;Ar</span>
         <h3 class="appel__titre">Des vidéos comme les miennes&nbsp;? <em>Je t'apprends.</em></h3>
-        <p class="appel__texte">Une formation de 1&nbsp;h&nbsp;30 en visio pour apprendre à créer des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts.</p>
+        <p class="appel__texte">Apprends en 1&nbsp;h&nbsp;30, en visio, à créer des vidéos explicatives animées pour TikTok, Reels et Shorts.</p>
 
         <!-- MAINTENANCE : pour fermer les inscriptions, retirez hidden de ce <p>
-             et ajoutez hidden sur <ol class="etapes"> et sur <form id="paiement">. -->
+             et ajoutez hidden sur le bouton id="ouvrir-formation". -->
         <p class="paiement__etat est-ok" id="paiement-maintenance" hidden>
           <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
           Inscriptions en cours de mise à jour. Reviens très bientôt&nbsp;!
         </p>
 
+        <!-- Un seul bouton, comme la carte « Appel découverte » :
+             les étapes et le formulaire de paiement s'ouvrent au clic -->
+        <button class="bouton" type="button" id="ouvrir-formation"
+                aria-expanded="false" aria-controls="formation-inscription" data-reaction="content pointe">
+          <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> M'inscrire à la formation
+        </button>
+
+        <div class="appel__intro" id="formation-inscription" hidden>
         <ol class="etapes">
           <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
           <li>Envoie la capture du paiement avec le formulaire ci-dessous.</li>
@@ -1473,17 +1481,11 @@
           <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Ta capture est enregistrée en privé : seul Claudio peut la voir.</p>
         </form>
         <p class="paiement__etat" id="paiement-etat" role="status" aria-live="polite" hidden></p>
-
-        <div class="appel__actions">
-          <a class="bouton" data-calendly-direct data-reaction="content pointe" id="reserver-formation" hidden
-             href="https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative"
-             target="_blank" rel="noopener noreferrer">
-            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver ma formation
-          </a>
-          <a class="bouton bouton--clair" data-reaction="surpris pointe"
-             href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
-            <i class="fa-brands fa-youtube" aria-hidden="true"></i> Voir mes vidéos
-          </a>
+        <a class="bouton" data-calendly-direct data-reaction="content pointe" id="reserver-formation" hidden
+           href="https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative"
+           target="_blank" rel="noopener noreferrer">
+          <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver ma formation
+        </a>
         </div>
       </div>
     </section>
@@ -1891,6 +1893,18 @@
       var adresse = eligibilite ? eligibilite.dataset.historique : '';
       if (!form || !etat || !reserver) return;
       var bouton = form.querySelector('button[type="submit"]');
+
+      // Le bouton « M'inscrire à la formation » ouvre les étapes et le formulaire
+      var ouvrir = document.getElementById('ouvrir-formation');
+      var inscription = document.getElementById('formation-inscription');
+      if (ouvrir && inscription) {
+        ouvrir.addEventListener('click', function () {
+          ouvrir.hidden = true;
+          ouvrir.setAttribute('aria-expanded', 'true');
+          inscription.hidden = false;
+          form.elements.prenom.focus();
+        });
+      }
       var MAIL = 'claudiomarcellyb@gmail.com';
 
       function afficher(texte, classe) {
