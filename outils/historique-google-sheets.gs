@@ -7,6 +7,9 @@
  *  - envoie un email d'alerte, si EMAIL_ALERTE est rempli.
  * Chaque réponse au sondage « D'où viens-tu ? » ajoute une ligne dans
  * l'onglet SONDAGE (créé tout seul à la première réponse), sans email.
+ * Chaque capture de paiement de la formation est rangée dans le dossier
+ * Drive « Captures paiement Link in Bio » (privé) et ajoute une ligne dans
+ * l'onglet PAIEMENTS avec un lien « Voir la capture », plus un email.
  *
  * Installation (une seule fois, environ 5 minutes) :
  *  1. Ouvrez sheets.new pour créer une feuille, nommez-la « Réponses Link in Bio ».
@@ -61,6 +64,13 @@ var COLONNES = [
 var ONGLET_SONDAGE = 'SONDAGE';
 var COLONNES_SONDAGE = ['Date', 'Source', 'Origine'];
 
+// Formation payante : captures de paiement envoyées depuis la page.
+// Les images vont dans un dossier privé de votre Google Drive ; l'onglet
+// PAIEMENTS garde une ligne par envoi avec le lien « Voir la capture ».
+var ONGLET_PAIEMENTS = 'PAIEMENTS';
+var COLONNES_PAIEMENTS = ['Date', 'Prénom', 'Email', 'Payé avec', 'Numéro utilisé', 'Capture', 'Source de la visite'];
+var DOSSIER_CAPTURES = 'Captures paiement Link in Bio';
+
 // Champ envoyé par la page → propriété du contact dans HubSpot
 var HUBSPOT_CHAMPS = {
   prenom: 'firstname',
@@ -77,15 +87,16 @@ var HUBSPOT_CHAMPS = {
 function doPost(e) {
   var champs = (e && e.parameter) || {};
   if (champs.type === 'sondage') return enregistrerSondage(champs);
+  if (champs.type === 'paiement') return enregistrerPaiement(champs);
   // Envoi vide (script lancé à la main, robot…) : on n'enregistre rien
   if (!champs.email && !champs.prenom) return ContentService.createTextOutput('ignoré');
 
   var verrou = LockService.getScriptLock();
   verrou.waitLock(10000);   // deux envois simultanés ne s'écrasent pas
   try {
-    // Premier onglet qui n'est pas celui du sondage (son nom importe peu)
+    // Premier onglet qui n'est ni le sondage ni les paiements (son nom importe peu)
     var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (f) {
-      return f.getName() !== ONGLET_SONDAGE;
+      return f.getName() !== ONGLET_SONDAGE && f.getName() !== ONGLET_PAIEMENTS;
     })[0];
     titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
@@ -130,6 +141,50 @@ function enregistrerSondage(champs) {
       classeur.insertSheet(ONGLET_SONDAGE, classeur.getSheets().length);   // ajouté en dernier
     titres(feuille, COLONNES_SONDAGE);
     feuille.appendRow([new Date(), source, propre(champs.origine)]);
+    return ContentService.createTextOutput('ok');
+  } finally {
+    verrou.releaseLock();
+  }
+}
+
+// Capture de paiement de la formation : image (JPEG en base64, réduite par la
+// page) enregistrée dans le dossier privé DOSSIER_CAPTURES, puis une ligne dans
+// l'onglet PAIEMENTS avec le lien vers l'image, et un email d'alerte.
+// Répond « ok » seulement si tout est enregistré : la page n'affiche le bouton
+// de réservation qu'à ce moment-là.
+function enregistrerPaiement(champs) {
+  var prenom = propre(champs.p_prenom), email = propre(champs.p_email);
+  if (!prenom || !email || !champs.image) return ContentService.createTextOutput('ignoré');
+  var octets = Utilities.base64Decode(champs.image);
+  // Une vraie image JPEG commence par les octets FF D8 ; 8 Mo maximum
+  if (octets.length < 4 || octets[0] !== -1 || octets[1] !== -40) return ContentService.createTextOutput('pas une image');
+  if (octets.length > 8 * 1024 * 1024) return ContentService.createTextOutput('trop lourd');
+
+  var verrou = LockService.getScriptLock();
+  verrou.waitLock(20000);
+  try {
+    var dossiers = DriveApp.getFoldersByName(DOSSIER_CAPTURES);
+    var dossier = dossiers.hasNext() ? dossiers.next() : DriveApp.createFolder(DOSSIER_CAPTURES);
+    var date = new Date();
+    var nom = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd HH-mm') + ' - ' + prenom.replace(/[\\/:*?"<>|]/g, '') + '.jpg';
+    var fichier = dossier.createFile(Utilities.newBlob(octets, 'image/jpeg', nom));
+
+    var classeur = SpreadsheetApp.getActiveSpreadsheet();
+    var feuille = classeur.getSheetByName(ONGLET_PAIEMENTS) ||
+      classeur.insertSheet(ONGLET_PAIEMENTS, classeur.getSheets().length);   // ajouté en dernier
+    titres(feuille, COLONNES_PAIEMENTS);
+    feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source)]);
+    feuille.getRange(feuille.getLastRow(), 6).setFormula('=HYPERLINK("' + fichier.getUrl() + '","Voir la capture")');
+
+    if (EMAIL_ALERTE) {
+      MailApp.sendEmail(
+        EMAIL_ALERTE,
+        'Paiement formation vidéo : ' + prenom + ' (' + propre(champs.p_moyen) + ')',
+        'Prénom : ' + prenom + '\nEmail : ' + email + '\nPayé avec : ' + propre(champs.p_moyen) +
+          '\nNuméro utilisé : ' + propre(champs.p_numero) + '\nCapture : ' + fichier.getUrl() +
+          '\n\nVérifiez le paiement avant le rendez-vous.\nTous les paiements : ' + classeur.getUrl()
+      );
+    }
     return ContentService.createTextOutput('ok');
   } finally {
     verrou.releaseLock();
