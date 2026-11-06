@@ -414,6 +414,10 @@
       font-size: 0.875rem;
       line-height: 1.1;
     }
+    .pastille--bleu { background: var(--bleu); }
+
+    /* Boutons empilés (carte « Création vidéo ») */
+    .appel__actions { display: grid; gap: 12px; }
 
     .appel__titre {
       font-weight: 800;
@@ -1379,6 +1383,35 @@
     </section>
 
     <!-- =====================================================
+         CRÉATION VIDÉO : réservation directe sur Calendly, sans questionnaire
+         - href = l'adresse de l'événement Calendly « Projet vidéo ».
+           Si vous renommez l'événement dans Calendly, son adresse peut
+           changer : mettez la nouvelle ici.
+         - Au clic, la page ajoute utm_source=linkinbio (et la réponse au
+           sondage dans utm_content) : Calendly l'affiche dans le rendez-vous.
+         ===================================================== -->
+    <section class="appel" aria-labelledby="titre-video">
+      <h2 class="label reveal" id="titre-video" style="--d: 5">// Création vidéo</h2>
+
+      <div class="appel__carte reveal" style="--d: 5">
+        <span class="pastille pastille--bleu">Vidéo sur mesure</span>
+        <h3 class="appel__titre">Une vidéo comme les miennes&nbsp;? <em>Parlons de ton projet.</em></h3>
+        <p class="appel__texte">Des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts. Réserve un appel de 30&nbsp;minutes en visio pour me présenter ton idée.</p>
+        <div class="appel__actions">
+          <a class="bouton" data-calendly-direct data-reaction="content pointe"
+             href="https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative"
+             target="_blank" rel="noopener noreferrer">
+            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver un appel vidéo
+          </a>
+          <a class="bouton bouton--clair" data-reaction="surpris pointe"
+             href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-youtube" aria-hidden="true"></i> Voir mes vidéos
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
          CATÉGORIE : MES RÉSEAUX
          Pour ajouter une catégorie, dupliquez tout un bloc <nav>.
          data-reaction = "expression pose [parle]" que prend le personnage
@@ -1747,6 +1780,8 @@
           url.searchParams.set('first_name', prenom);   // formulaire avec « Prénom » + « Nom de famille »
           url.searchParams.set('email', email);
           url.searchParams.set('a1', resume);
+          url.searchParams.set('utm_source', 'linkinbio');                     // visible dans le rendez-vous
+          if (sourceVisite()) url.searchParams.set('utm_content', sourceVisite());
           calendly.href = url.toString();
         }
 
@@ -1765,6 +1800,21 @@
         intro.hidden = true;
         resultat.hidden = false;
         resultat.focus();
+      });
+    })();
+
+    /* Réservations Calendly directes (ex. « Projet vidéo ») : au clic, on ajoute
+       l'origine du visiteur au lien, pour la retrouver dans le rendez-vous. */
+    (function () {
+      document.querySelectorAll('[data-calendly-direct]').forEach(function (lien) {
+        lien.addEventListener('click', function () {
+          var url = new URL(lien.href);
+          url.searchParams.set('utm_source', 'linkinbio');
+          var source = '';
+          try { source = localStorage.getItem('source-visite') || ''; } catch (e) {}
+          if (source) url.searchParams.set('utm_content', source);
+          lien.href = url.toString();
+        });
       });
     })();
   </script>
