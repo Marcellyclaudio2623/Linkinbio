@@ -10,6 +10,10 @@
  * Chaque capture de paiement de la formation est rangée dans le dossier
  * Drive « Captures paiement Link in Bio » (privé) et ajoute une ligne dans
  * l'onglet PAIEMENTS avec un lien « Voir la capture », plus un email.
+ * La page ne donne jamais le lien de réservation de la formation : quand
+ * vous choisissez « Validé » dans la colonne Statut de PAIEMENTS (après
+ * avoir vu l'argent arriver sur Orange Money / MVola), le script envoie à
+ * la personne un lien Calendly valable pour UNE seule réservation.
  *
  * Installation (une seule fois, environ 5 minutes) :
  *  1. Ouvrez sheets.new pour créer une feuille, nommez-la « Réponses Link in Bio ».
@@ -42,8 +46,10 @@
  *  - Dans Apps Script, « Propriétés du script », ajoutez :
  *        Propriété : CALENDLY_TOKEN     Valeur : le jeton
  *    Ne mettez jamais le jeton dans le code ni dans un message.
- *  - Choisissez la fonction « installerSynchroCalendly » en haut de
+ *  - Choisissez la fonction « installerAutomatismes » en haut de
  *    l'éditeur, cliquez sur « Exécuter » (une seule fois) et autorisez.
+ *    Elle met en route la synchro Calendly ET l'envoi des liens de
+ *    réservation quand un paiement passe en « Validé ».
  *
  * Nettoyage des essais : la fonction « supprimerTests » efface les lignes
  * et le contact HubSpot créés par les tests (« TEST Claude »).
@@ -80,13 +86,16 @@ var COLONNES_SONDAGE = ['Date', 'Source', 'Origine'];
 // Les images vont dans un dossier privé de votre Google Drive ; l'onglet
 // PAIEMENTS garde une ligne par envoi avec le lien « Voir la capture ».
 var ONGLET_PAIEMENTS = 'PAIEMENTS';
-var COLONNES_PAIEMENTS = ['Date', 'Prénom', 'Email', 'Payé avec', 'Numéro utilisé', 'Capture', 'Source de la visite'];
+var COLONNES_PAIEMENTS = ['Date', 'Prénom', 'Email', 'Payé avec', 'Numéro utilisé', 'Capture', 'Source de la visite',
+  'Référence', 'Statut', 'Lien de réservation'];
+var STATUTS_PAIEMENT = ['À vérifier', 'Validé', 'Refusé'];
+var FORMATION_NOM = /formation/i;   // reconnaît l'événement Calendly de la formation
 var DOSSIER_CAPTURES = 'Captures paiement Link in Bio';
 
 // Rendez-vous pris sur Calendly (onglet recréé à chaque mise à jour)
 var ONGLET_CALENDLY = 'RDV CALENDLY';
 var COLONNES_CALENDLY = ['Date du RDV', 'Type de RDV', 'Nom', 'Email', 'Téléphone ou lien', 'Statut',
-  'Formulaire LLC', 'Capture paiement', 'Source', 'Réponses aux questions', 'Tes notes', 'Réservé le'];
+  'Formulaire LLC', 'Paiement', 'Source', 'Réponses aux questions', 'Tes notes', 'Réservé le'];
 var JOURS_HISTORIQUE = 60;   // RDV passés gardés dans l'onglet
 
 // Ce qui permet de reconnaître une ligne de test (fonction supprimerTests)
@@ -194,7 +203,14 @@ function enregistrerPaiement(champs) {
     var feuille = classeur.getSheetByName(ONGLET_PAIEMENTS) ||
       classeur.insertSheet(ONGLET_PAIEMENTS, classeur.getSheets().length);   // ajouté en dernier
     titres(feuille, COLONNES_PAIEMENTS);
-    feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source)]);
+    // Même référence déjà envoyée par quelqu'un d'autre : capture sans doute réutilisée
+    var reference = propre(champs.p_reference).toUpperCase();
+    var deja = reference && feuille.getLastRow() > 1 && feuille.getRange(2, 8, feuille.getLastRow() - 1, 1)
+      .getDisplayValues().some(function (r) { return String(r[0]).trim().toUpperCase() === reference; });
+    feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source),
+      reference || '(aucune)', 'À vérifier', deja ? '⚠ Référence déjà utilisée dans une autre ligne' : '']);
+    listeStatuts(feuille);
+    if (deja) feuille.getRange(feuille.getLastRow(), 1, 1, COLONNES_PAIEMENTS.length).setBackground('#FDE2DD');
     // Lien cliquable « Voir la capture » (sans formule : marche quelle que soit la langue du tableau)
     feuille.getRange(feuille.getLastRow(), 6).setRichTextValue(
       SpreadsheetApp.newRichTextValue().setText('Voir la capture').setLinkUrl(fichier.getUrl()).build()
@@ -205,8 +221,13 @@ function enregistrerPaiement(champs) {
         EMAIL_ALERTE,
         'Paiement formation vidéo : ' + prenom + ' (' + propre(champs.p_moyen) + ')',
         'Prénom : ' + prenom + '\nEmail : ' + email + '\nPayé avec : ' + propre(champs.p_moyen) +
-          '\nNuméro utilisé : ' + propre(champs.p_numero) + '\nCapture : ' + fichier.getUrl() +
-          '\n\nVérifiez le paiement avant le rendez-vous.\nTous les paiements : ' + classeur.getUrl()
+          '\nNuméro utilisé : ' + propre(champs.p_numero) + '\nRéférence : ' + (reference || '(aucune)') +
+          (deja ? '\n⚠ ATTENTION : cette référence a déjà été envoyée dans une autre ligne.' : '') +
+          '\nCapture : ' + fichier.getUrl() +
+          '\n\nAucun lien de réservation n\'a été donné. Vérifiez que l\'argent est bien arrivé sur votre ' +
+          'compte (la capture seule ne prouve rien), puis dans l\'onglet PAIEMENTS, colonne Statut, ' +
+          'choisissez « Validé » : le lien de réservation part tout seul par email.' +
+          '\nTous les paiements : ' + classeur.getUrl()
       );
     }
     return ContentService.createTextOutput('ok');
@@ -298,15 +319,100 @@ function propre(valeur) {
 
 // ───────────────────────── Rendez-vous Calendly ─────────────────────────
 
-// À lancer UNE fois à la main : met la synchro toutes les 30 minutes,
-// puis remplit l'onglet tout de suite.
-function installerSynchroCalendly() {
+// À lancer UNE fois à la main : synchro Calendly toutes les 30 minutes +
+// envoi du lien de réservation quand un paiement passe en « Validé ».
+function installerAutomatismes() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'synchroCalendly') ScriptApp.deleteTrigger(t);
+    if (['synchroCalendly', 'quandModifie'].indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('synchroCalendly').timeBased().everyMinutes(30).create();
-  console.log('Synchro Calendly programmée toutes les 30 minutes.');
+  ScriptApp.newTrigger('quandModifie').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
+  var paiements = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLET_PAIEMENTS);
+  if (paiements) {
+    titres(paiements, COLONNES_PAIEMENTS);
+    // Anciennes lignes sans statut : « À vérifier »
+    if (paiements.getLastRow() > 1) {
+      var plage = paiements.getRange(2, 9, paiements.getLastRow() - 1, 1);
+      plage.setValues(plage.getValues().map(function (r) { return [r[0] || 'À vérifier']; }));
+    }
+    listeStatuts(paiements);
+  }
+  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation.');
   synchroCalendly();
+}
+// Ancien nom, gardé pour ne rien casser
+function installerSynchroCalendly() { installerAutomatismes(); }
+
+// Menu déroulant À vérifier / Validé / Refusé dans la colonne Statut
+function listeStatuts(feuille) {
+  if (feuille.getMaxRows() < 2) return;
+  feuille.getRange(2, 9, feuille.getMaxRows() - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(STATUTS_PAIEMENT, true).setAllowInvalid(false).build());
+}
+
+// Déclenché à chaque modification de la feuille (installé par installerAutomatismes).
+// Statut → « Validé » : envoie le lien de réservation (une seule fois par ligne).
+// Statut → « Refusé » : prévient la personne (une seule fois par ligne).
+function quandModifie(e) {
+  if (!e || !e.range) return;
+  var feuille = e.range.getSheet();
+  if (feuille.getName() !== ONGLET_PAIEMENTS || e.range.getColumn() !== 9 || e.range.getNumColumns() !== 1) return;
+  for (var r = e.range.getRow(); r < e.range.getRow() + e.range.getNumRows(); r++) {
+    if (r < 2) continue;
+    var ligne = feuille.getRange(r, 1, 1, COLONNES_PAIEMENTS.length).getDisplayValues()[0];
+    var statut = ligne[8], dejaFait = ligne[9];
+    if (/^(Envoyé|Refus envoyé)/.test(dejaFait)) continue;   // jamais deux fois
+    var cible = feuille.getRange(r, 10);
+    try {
+      if (statut === 'Validé') {
+        var lien = lienFormation(ligne[1], ligne[2]);
+        MailApp.sendEmail({
+          to: ligne[2], name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE,
+          subject: 'Ton paiement est validé : réserve ta formation vidéo',
+          body: 'Bonjour ' + ligne[1] + ',\n\nTon paiement pour la formation vidéo (1 h 30) est bien reçu, merci !\n\n' +
+            'Choisis ton créneau ici. Ce lien est personnel et ne marche que pour une seule réservation :\n' +
+            lien + '\n\nÀ très vite,\nClaudio Marcelly'
+        });
+        cible.setValue('Envoyé le ' + maintenantTexte() + ' : ' + lien);
+        feuille.getRange(r, 1, 1, COLONNES_PAIEMENTS.length).setBackground('#E3F4E1');
+      } else if (statut === 'Refusé') {
+        MailApp.sendEmail({
+          to: ligne[2], name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE,
+          subject: 'Formation vidéo : paiement non reçu',
+          body: 'Bonjour ' + ligne[1] + ',\n\nJe n\'ai pas trouvé ton paiement de 100 000 Ar sur mon compte. ' +
+            'Si tu as bien payé, réponds à cet email avec la référence de la transaction et je vérifie à nouveau.\n\nClaudio Marcelly'
+        });
+        cible.setValue('Refus envoyé le ' + maintenantTexte());
+      }
+    } catch (err) {
+      cible.setValue('⚠ Erreur : ' + String(err.message || err).slice(0, 200));
+    }
+  }
+}
+
+// Crée un lien Calendly à usage unique pour la formation, prérempli avec le nom et l'email
+function lienFormation(prenom, email) {
+  var jeton = PropertiesService.getScriptProperties().getProperty('CALENDLY_TOKEN');
+  if (!jeton) throw new Error('jeton CALENDLY_TOKEN absent des propriétés du script');
+  var entetes = { Authorization: 'Bearer ' + jeton };
+  function appel(url, corps) {
+    var rep = UrlFetchApp.fetch(url, corps
+      ? { method: 'post', contentType: 'application/json', payload: JSON.stringify(corps), headers: entetes, muteHttpExceptions: true }
+      : { headers: entetes, muteHttpExceptions: true });
+    if (rep.getResponseCode() >= 300) throw new Error('Calendly ' + rep.getResponseCode() + ' ' + rep.getContentText().slice(0, 200));
+    return JSON.parse(rep.getContentText());
+  }
+  var moi = appel('https://api.calendly.com/users/me').resource.uri;
+  var types = appel('https://api.calendly.com/event_types?active=true&count=100&user=' + encodeURIComponent(moi)).collection;
+  var formation = types.filter(function (t) { return FORMATION_NOM.test(t.name); })[0];
+  if (!formation) throw new Error('aucun événement Calendly actif avec « formation » dans son nom');
+  var lien = appel('https://api.calendly.com/scheduling_links',
+    { max_event_count: 1, owner: formation.uri, owner_type: 'EventType' }).resource.booking_url;
+  return lien + '?name=' + encodeURIComponent(prenom) + '&email=' + encodeURIComponent(email);
+}
+
+function maintenantTexte() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
 }
 
 // Réécrit l'onglet RDV CALENDLY : RDV à venir en haut (le plus proche
@@ -341,7 +447,7 @@ function synchroCalendly() {
 
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
   var formulaires = parEmail(ongletFormulaire(classeur), 'Email', 'Éligible');
-  var paiements = parEmail(classeur.getSheetByName(ONGLET_PAIEMENTS), 'Email', 'Date');
+  var paiements = parEmail(classeur.getSheetByName(ONGLET_PAIEMENTS), 'Email', 'Statut');
   var maintenant = new Date();
   var lignes = [];
 
@@ -356,7 +462,9 @@ function synchroCalendly() {
         : inv.no_show ? 'Absent' : (debut > maintenant ? 'À venir' : 'Passé');
       var formulaire = formation ? '' : (email in formulaires
         ? 'Éligible : ' + formulaires[email] : '⚠ Aucun formulaire');
-      var capture = !formation ? '' : (email in paiements ? 'Oui' : '⚠ Aucune capture');
+      var statutPaiement = paiements[email] || 'À vérifier';
+      var capture = !formation ? '' : (!(email in paiements) ? '⚠ Aucune capture'
+        : (statutPaiement === 'Validé' ? 'Validé' : '⚠ ' + statutPaiement));
       var questions = (inv.questions_and_answers || []).map(function (q) {
         return q.question + ' : ' + q.answer;
       }).join(' | ');
@@ -382,7 +490,7 @@ function synchroCalendly() {
     feuille.getRange(2, 1, lignes.length, COLONNES_CALENDLY.length).setValues(lignes);
     feuille.getRange(2, 1, lignes.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
     feuille.getRange(2, 12, lignes.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
-    // En rouge clair : formation réservée sans capture, ou appel LLC sans formulaire
+    // En rouge clair : formation réservée sans paiement validé, ou appel LLC sans formulaire
     // (sauf RDV annulé : plus rien à vérifier)
     lignes.forEach(function (l, i) {
       if (l[5] !== 'Annulé' && (String(l[6]).indexOf('⚠') === 0 || String(l[7]).indexOf('⚠') === 0)) {
@@ -410,7 +518,7 @@ function parEmail(feuille, colonneEmail, colonneValeur) {
   if (iEmail === -1) return resultat;
   for (var i = 1; i < valeurs.length; i++) {
     var email = String(valeurs[i][iEmail]).trim().toLowerCase();
-    if (email) resultat[email] = iValeur === -1 ? 'Oui' : (valeurs[i][iValeur] || 'Oui');
+    if (email) resultat[email] = iValeur === -1 ? '' : valeurs[i][iValeur];
   }
   return resultat;
 }

@@ -1525,14 +1525,13 @@
     </section>
 
     <!-- =====================================================
-         FORMATION VIDÉO (payante) : réservation après envoi de la capture
+         FORMATION VIDÉO (payante) : réservation après vérification du paiement
          - Tarif et moyens de paiement : modifiez-les ici ET dans la
            description de l'événement Calendly.
-         - CALENDLY_FORMATION (dans le script) = l'adresse de l'événement
-           Calendly « Formation vidéo ». Si vous renommez l'événement dans
-           Calendly, mettez la nouvelle adresse dans cette variable.
-         - Le bouton de réservation est créé par JavaScript uniquement après
-           confirmation de la capture par le script Google.
+         - La page n'affiche JAMAIS l'adresse Calendly de la formation.
+           Claudio vérifie le paiement (onglet PAIEMENTS, colonne Statut →
+           « Validé ») et le script Google envoie alors par email un lien
+           de réservation Calendly valable une seule fois.
          ===================================================== -->
     <section class="appel" aria-labelledby="titre-video">
       <h2 class="label reveal" id="titre-video" style="--d: 5">// Formation vidéo</h2>
@@ -1579,13 +1578,13 @@
         <div class="appel__intro" id="formation-inscription" hidden>
         <ol class="etapes">
           <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
-          <li>Envoie la capture du paiement avec le formulaire ci-dessous.</li>
-          <li>Réserve ton créneau de formation.</li>
+          <li>Envoie la capture et la référence du paiement avec le formulaire ci-dessous.</li>
+          <li>Je vérifie ton paiement, puis tu reçois par email <strong>ton lien de réservation personnel</strong> (sous 24&nbsp;h).</li>
         </ol>
 
         <!-- Envoi de la capture : enregistrée dans le Google Drive de Claudio
              (dossier privé) + une ligne dans l'onglet PAIEMENTS du tableau.
-             Le bouton « Réserver ma formation » apparaît une fois la capture reçue. -->
+             Aucun lien de réservation ici : il part par email après vérification. -->
         <form class="formulaire formulaire--paiement" id="paiement">
           <div class="champ">
             <label for="p-prenom">Ton prénom</label>
@@ -1607,6 +1606,11 @@
             <input type="tel" id="p-numero" name="numero" autocomplete="tel" inputmode="tel" required />
           </div>
           <div class="champ">
+            <label for="p-reference">Référence de la transaction</label>
+            <input type="text" id="p-reference" name="reference" autocomplete="off" autocapitalize="characters"
+                   minlength="4" maxlength="60" placeholder="Dans le SMS de confirmation" required />
+          </div>
+          <div class="champ">
             <label for="p-capture">Capture du paiement</label>
             <input type="file" id="p-capture" name="capture" accept="image/*" required />
           </div>
@@ -1618,8 +1622,6 @@
           <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Ta capture est enregistrée en privé : seul Claudio peut la voir.</p>
         </form>
         <p class="paiement__etat" id="paiement-etat" role="status" aria-live="polite" hidden></p>
-        <!-- Le bouton « Réserver ma formation » est créé par le script, après une
-             capture de paiement reçue (adresse : CALENDLY_FORMATION dans le script). -->
         </div>
       </div>
     </section>
@@ -2020,9 +2022,9 @@
 
     /* Formation : envoi de la capture de paiement au script Google (Drive +
        onglet PAIEMENTS). L'image est réduite (1600 px max, JPEG) avant l'envoi.
-       Le bouton de réservation est créé uniquement après confirmation du script. */
+       Pas de lien de réservation sur la page : il est envoyé par email
+       une fois le paiement vérifié par Claudio. */
     (function () {
-      var CALENDLY_FORMATION = 'https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative';
       var MAIL = 'claudiomarcellyb@gmail.com';
 
       var form = document.getElementById('paiement');
@@ -2087,6 +2089,7 @@
         var email = form.elements.email.value.trim();
         var moyen = form.elements.moyen.value;
         var numero = form.elements.numero.value.trim();
+        var reference = form.elements.reference.value.trim();
         var source = '';
         try { source = localStorage.getItem('source-visite') || ''; } catch (err) {}
 
@@ -2101,45 +2104,14 @@
             method: 'POST',
             body: new URLSearchParams({
               type: 'paiement', p_prenom: prenom, p_email: email, p_moyen: moyen,
-              p_numero: numero, p_source: source, image: image
+              p_numero: numero, p_reference: reference, p_source: source, image: image
             })
           });
         }).then(function (rep) { return rep.text(); }).then(function (texte) {
           if (texte.trim() !== 'ok') throw new Error(texte);
           form.hidden = true;
-          afficher('Capture reçue, merci ' + prenom + '\u00a0! Tu peux maintenant réserver ton créneau.', 'est-ok');
-
-          var url = new URL(CALENDLY_FORMATION);
-          url.searchParams.set('name', prenom);
-          url.searchParams.set('first_name', prenom);
-          url.searchParams.set('email', email);
-          url.searchParams.set('a1', 'Paiement envoyé : ' + moyen + ' depuis le ' + numero + ' (capture reçue)');
-          url.searchParams.set('utm_source', 'linkinbio');
-          if (source) url.searchParams.set('utm_content', source);
-
-          var reserver = document.getElementById('reserver-formation');
-          if (!reserver) {
-            reserver = document.createElement('a');
-            reserver.className = 'bouton';
-            reserver.id = 'reserver-formation';
-            reserver.dataset.reaction = 'content pointe';
-            reserver.target = '_blank';
-            reserver.rel = 'noopener noreferrer';
-            reserver.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver ma formation';
-            var perso = document.getElementById('perso');
-            if (perso) {
-              var depart = { expr: perso.dataset.expr, pose: perso.dataset.pose, parle: perso.dataset.parle };
-              var jouer = function () { Object.assign(perso.dataset, { expr: 'content', pose: 'pointe', parle: 'non' }); };
-              var revenir = function () { Object.assign(perso.dataset, depart); };
-              reserver.addEventListener('pointerenter', jouer);
-              reserver.addEventListener('pointerleave', revenir);
-              reserver.addEventListener('focus', jouer);
-              reserver.addEventListener('blur', revenir);
-            }
-            etat.insertAdjacentElement('afterend', reserver);
-          }
-          reserver.href = url.toString();
-          reserver.focus();
+          afficher('Capture reçue, merci ' + prenom + '\u00a0! Je vérifie ton paiement, puis tu reçois ton lien de réservation à ' +
+            email + ' (sous 24\u00a0h). Pense à regarder tes spams.', 'est-ok');
         }).catch(function () {
           bouton.disabled = false;
           bouton.textContent = 'Envoyer la capture';
