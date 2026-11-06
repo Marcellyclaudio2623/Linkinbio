@@ -419,6 +419,31 @@
     /* Boutons empilés (carte « Création vidéo ») */
     .appel__actions { display: grid; gap: 12px; }
 
+    /* Étapes numérotées (paiement de la formation) */
+    .etapes {
+      display: grid;
+      gap: 10px;
+      padding: 14px 14px 14px 2.2em;
+      border: 2px dashed var(--motif);
+      border-radius: 12px;
+      line-height: 1.4;
+    }
+    .etapes li::marker { color: var(--rouge); font-family: var(--mono); font-weight: 600; }
+    .etapes a { color: var(--rouge); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+
+    /* Formulaire d'envoi de la capture de paiement */
+    .formulaire--paiement { margin-top: 0; gap: 16px; }
+    .champ input[type="file"] { padding: 10px; font-size: 0.9375rem; cursor: pointer; }
+    .paiement__etat {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--papier);
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .paiement__etat.est-ok { background: var(--jaune); }
+    .paiement__etat.est-erreur { background: var(--encre); color: #fff; }
+
     .appel__titre {
       font-weight: 800;
       font-size: 1.375rem;
@@ -1383,25 +1408,70 @@
     </section>
 
     <!-- =====================================================
-         CRÉATION VIDÉO : réservation directe sur Calendly, sans questionnaire
-         - href = l'adresse de l'événement Calendly « Projet vidéo ».
+         FORMATION VIDÉO (payante) : réservation directe sur Calendly
+         - Tarif et moyens de paiement : modifiez-les ici ET dans la
+           description de l'événement Calendly.
+         - href = l'adresse de l'événement Calendly « Formation vidéo ».
            Si vous renommez l'événement dans Calendly, son adresse peut
            changer : mettez la nouvelle ici.
          - Au clic, la page ajoute utm_source=linkinbio (et la réponse au
            sondage dans utm_content) : Calendly l'affiche dans le rendez-vous.
          ===================================================== -->
     <section class="appel" aria-labelledby="titre-video">
-      <h2 class="label reveal" id="titre-video" style="--d: 5">// Création vidéo</h2>
+      <h2 class="label reveal" id="titre-video" style="--d: 5">// Formation vidéo</h2>
 
       <div class="appel__carte reveal" style="--d: 5">
-        <span class="pastille pastille--bleu">Vidéo sur mesure</span>
-        <h3 class="appel__titre">Une vidéo comme les miennes&nbsp;? <em>Parlons de ton projet.</em></h3>
-        <p class="appel__texte">Des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts. Réserve un appel de 30&nbsp;minutes en visio pour me présenter ton idée.</p>
+        <span class="pastille pastille--bleu">Formation 1&nbsp;h&nbsp;30 · 100&nbsp;000&nbsp;Ar</span>
+        <h3 class="appel__titre">Des vidéos comme les miennes&nbsp;? <em>Je t'apprends.</em></h3>
+        <p class="appel__texte">Une formation de 1&nbsp;h&nbsp;30 en visio pour apprendre à créer des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts.</p>
+
+        <ol class="etapes">
+          <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
+          <li>Envoie la capture du paiement avec le formulaire ci-dessous.</li>
+          <li>Réserve ton créneau de formation.</li>
+        </ol>
+
+        <!-- Envoi de la capture : enregistrée dans le Google Drive de Claudio
+             (dossier privé) + une ligne dans l'onglet PAIEMENTS du tableau.
+             Le bouton « Réserver ma formation » apparaît une fois la capture reçue. -->
+        <form class="formulaire formulaire--paiement" id="paiement">
+          <div class="champ">
+            <label for="p-prenom">Ton prénom</label>
+            <input type="text" id="p-prenom" name="prenom" autocomplete="given-name" required />
+          </div>
+          <div class="champ">
+            <label for="p-email">Ton email</label>
+            <input type="email" id="p-email" name="email" autocomplete="email" inputmode="email" required />
+          </div>
+          <fieldset class="question">
+            <legend>Payé avec</legend>
+            <div class="choix">
+              <label><input type="radio" name="moyen" value="Orange Money" required /><span>Orange Money</span></label>
+              <label><input type="radio" name="moyen" value="MVola" /><span>MVola</span></label>
+            </div>
+          </fieldset>
+          <div class="champ">
+            <label for="p-numero">Numéro utilisé pour payer</label>
+            <input type="tel" id="p-numero" name="numero" autocomplete="tel" inputmode="tel" required />
+          </div>
+          <div class="champ">
+            <label for="p-capture">Capture du paiement</label>
+            <input type="file" id="p-capture" name="capture" accept="image/*" required />
+          </div>
+          <div class="sr-only" aria-hidden="true">
+            <label for="p-site">Ne pas remplir</label>
+            <input type="text" id="p-site" name="site" tabindex="-1" autocomplete="off" />
+          </div>
+          <button class="bouton" type="submit">Envoyer la capture</button>
+          <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Ta capture est enregistrée en privé : seul Claudio peut la voir.</p>
+        </form>
+        <p class="paiement__etat" id="paiement-etat" role="status" aria-live="polite" hidden></p>
+
         <div class="appel__actions">
-          <a class="bouton" data-calendly-direct data-reaction="content pointe"
+          <a class="bouton" data-calendly-direct data-reaction="content pointe" id="reserver-formation" hidden
              href="https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative"
              target="_blank" rel="noopener noreferrer">
-            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver un appel vidéo
+            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver ma formation
           </a>
           <a class="bouton bouton--clair" data-reaction="surpris pointe"
              href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
@@ -1800,6 +1870,99 @@
         intro.hidden = true;
         resultat.hidden = false;
         resultat.focus();
+      });
+    })();
+
+    /* Formation : envoi de la capture de paiement au script Google (Drive +
+       onglet PAIEMENTS). L'image est réduite (1600 px max, JPEG) avant l'envoi.
+       Le bouton de réservation n'apparaît qu'après confirmation du script. */
+    (function () {
+      var form = document.getElementById('paiement');
+      var etat = document.getElementById('paiement-etat');
+      var reserver = document.getElementById('reserver-formation');
+      var eligibilite = document.getElementById('eligibilite');
+      var adresse = eligibilite ? eligibilite.dataset.historique : '';
+      if (!form || !etat || !reserver) return;
+      var bouton = form.querySelector('button[type="submit"]');
+      var MAIL = 'claudiomarcellyb@gmail.com';
+
+      function afficher(texte, classe) {
+        etat.textContent = texte;
+        etat.className = 'paiement__etat ' + (classe || '');
+        etat.hidden = false;
+      }
+
+      // Image → JPEG réduit, en base64 (sans le préfixe data:)
+      function reduire(fichier) {
+        return new Promise(function (ok, ko) {
+          var lecteur = new FileReader();
+          lecteur.onerror = ko;
+          lecteur.onload = function () {
+            var img = new Image();
+            img.onerror = ko;
+            img.onload = function () {
+              var echelle = Math.min(1, 1600 / Math.max(img.width, img.height));
+              var toile = document.createElement('canvas');
+              toile.width = Math.round(img.width * echelle);
+              toile.height = Math.round(img.height * echelle);
+              var ctx = toile.getContext('2d');
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0, 0, toile.width, toile.height);
+              ctx.drawImage(img, 0, 0, toile.width, toile.height);
+              ok(toile.toDataURL('image/jpeg', 0.82).split(',')[1]);
+            };
+            img.src = lecteur.result;
+          };
+          lecteur.readAsDataURL(fichier);
+        });
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (form.elements.site.value) return;                       // robot
+        var fichier = form.elements.capture.files[0];
+        if (!fichier || !/^image\//.test(fichier.type)) { afficher('Choisis une image (capture d\'écran ou photo du reçu).', 'est-erreur'); return; }
+        if (fichier.size > 15 * 1024 * 1024) { afficher('Cette image est trop lourde (15 Mo maximum).', 'est-erreur'); return; }
+        if (!adresse) { afficher('L\'envoi est indisponible pour le moment. Écris à ' + MAIL + '.', 'est-erreur'); return; }
+
+        var prenom = form.elements.prenom.value.trim();
+        var email = form.elements.email.value.trim();
+        var moyen = form.elements.moyen.value;
+        var numero = form.elements.numero.value.trim();
+        var source = '';
+        try { source = localStorage.getItem('source-visite') || ''; } catch (err) {}
+
+        bouton.disabled = true;
+        bouton.textContent = 'Envoi en cours…';
+        afficher('Envoi de ta capture…');
+
+        reduire(fichier).then(function (image) {
+          // Champs préfixés p_ : une ancienne version du script les ignore au lieu
+          // de les ranger par erreur avec les formulaires d'éligibilité.
+          return fetch(adresse, {
+            method: 'POST',
+            body: new URLSearchParams({
+              type: 'paiement', p_prenom: prenom, p_email: email, p_moyen: moyen,
+              p_numero: numero, p_source: source, image: image
+            })
+          });
+        }).then(function (rep) { return rep.text(); }).then(function (texte) {
+          if (texte.trim() !== 'ok') throw new Error(texte);
+          form.hidden = true;
+          afficher('Capture reçue, merci ' + prenom + ' ! Tu peux maintenant réserver ton créneau.', 'est-ok');
+          var url = new URL(reserver.href);
+          url.searchParams.set('name', prenom);
+          url.searchParams.set('first_name', prenom);
+          url.searchParams.set('email', email);
+          url.searchParams.set('a1', 'Paiement envoyé : ' + moyen + ' depuis le ' + numero + ' (capture reçue)');
+          reserver.href = url.toString();
+          reserver.hidden = false;
+          reserver.focus();
+        }).catch(function () {
+          bouton.disabled = false;
+          bouton.textContent = 'Envoyer la capture';
+          afficher('L\'envoi n\'a pas marché. Vérifie ta connexion et réessaie. Si ça bloque encore, écris à ' + MAIL + '.', 'est-erreur');
+        });
       });
     })();
 
