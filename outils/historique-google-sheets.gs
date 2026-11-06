@@ -174,7 +174,10 @@ function enregistrerPaiement(champs) {
       classeur.insertSheet(ONGLET_PAIEMENTS, classeur.getSheets().length);   // ajouté en dernier
     titres(feuille, COLONNES_PAIEMENTS);
     feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source)]);
-    feuille.getRange(feuille.getLastRow(), 6).setFormula('=HYPERLINK("' + fichier.getUrl() + '","Voir la capture")');
+    // Lien cliquable « Voir la capture » (sans formule : marche quelle que soit la langue du tableau)
+    feuille.getRange(feuille.getLastRow(), 6).setRichTextValue(
+      SpreadsheetApp.newRichTextValue().setText('Voir la capture').setLinkUrl(fichier.getUrl()).build()
+    );
 
     if (EMAIL_ALERTE) {
       MailApp.sendEmail(
