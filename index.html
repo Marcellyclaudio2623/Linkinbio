@@ -1397,12 +1397,11 @@
 
     <!-- =====================================================
          RÉSERVER UN APPEL
-         Le formulaire vérifie l'éligibilité dans le navigateur, sans
-         serveur. Si la personne est éligible, elle accède à Calendly avec
-         son prénom, son email et ses réponses déjà remplis.
-         - data-calendly = l'adresse de l'événement Calendly.
-           Dans Calendly, ajoutez une question (1re question personnalisée)
-           du type « Réponses au questionnaire » : elle recevra les réponses.
+         Le formulaire vérifie l'éligibilité dans le navigateur. Une personne
+         éligible n'obtient PAS de lien Calendly sur la page : sa demande
+         arrive dans la feuille Google (Statut « À vérifier »). Claudio choisit
+         « Validé » et le script Google lui envoie par email un lien de
+         réservation valable une seule fois (ou « Refusé » : email poli).
          - Critères : une réponse (bouton ou ligne du menu déroulant) avec
            data-bloquant="raison" rend la personne non éligible et affiche
            la raison. Ajoutez ou retirez l'attribut pour changer les critères.
@@ -1420,7 +1419,7 @@
         <span class="pastille">Appel découverte</span>
         <div class="appel__intro" id="appel-intro">
           <h3 class="appel__titre">Un projet e-commerce ? <em>Parlons-en.</em></h3>
-          <p class="appel__texte">Réponds à 6 questions rapides. Si ton profil correspond, tu choisis directement un créneau dans mon agenda.</p>
+          <p class="appel__texte">Réponds à 6 questions rapides. Si ton profil correspond, je lis ta demande et tu reçois ton lien de réservation par email.</p>
         </div>
 
         <button class="bouton" type="button" id="ouvrir-eligibilite"
@@ -1430,7 +1429,6 @@
         <noscript><p class="mention">// Active JavaScript pour vérifier ton éligibilité, ou écris-moi par email.</p></noscript>
 
         <form class="formulaire" id="eligibilite" hidden
-              data-calendly="https://calendly.com/claudiomarcellyb/appeldecouverte20min"
               data-historique="https://script.google.com/macros/s/AKfycbymTnRgB36dXRCvrnx7UtuOzgURG_a2Chgmoq1mrklRVtax4hCFdq3Xrx5Rg0wfvNEL/exec">
 
           <fieldset class="question" data-resume="Situation">
@@ -1519,13 +1517,18 @@
 
       <!-- Textes du résultat (modifiables) -->
       <template id="modele-eligible">
-        <p class="resultat__statut resultat__statut--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Éligible</p>
-        <h3 class="appel__titre">C'est tout bon, <span data-champ="prenom"></span> !</h3>
-        <p class="appel__texte">Ton profil correspond. Choisis le créneau qui t'arrange : tes réponses seront jointes à ta réservation.</p>
-        <a class="bouton" data-champ="calendly" href="#" target="_blank" rel="noopener noreferrer">
-          <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Choisir mon créneau
-        </a>
-        <button class="bouton-texte" type="button" data-action="modifier">Modifier mes réponses</button>
+        <p class="resultat__statut resultat__statut--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Demande envoyée</p>
+        <h3 class="appel__titre">C'est noté, <span data-champ="prenom"></span> !</h3>
+        <p class="appel__texte">Ton profil correspond. Je lis ta demande et tu reçois à <strong data-champ="email"></strong> ton lien de réservation personnel, sous 24&nbsp;h. Pense à regarder tes spams.</p>
+        <p class="appel__texte">En attendant, avance avec mes contenus gratuits&nbsp;:</p>
+        <div class="resultat__actions">
+          <a class="bouton bouton--clair" data-lien="whatsapp" href="#" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Rejoindre ma chaîne WhatsApp
+          </a>
+          <a class="bouton bouton--clair" data-lien="youtube" href="#" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-youtube" aria-hidden="true"></i> Voir mes vidéos YouTube
+          </a>
+        </div>
       </template>
 
       <template id="modele-refus">
@@ -1947,7 +1950,8 @@
     })();
 
     /* Formulaire d'éligibilité : le calcul se fait dans le navigateur.
-       Éligible  → lien Calendly pré-rempli (prénom, email, réponses en 1re question).
+       Éligible  → demande enregistrée (on attend la confirmation du script),
+                   puis « Demande envoyée » : le lien part par email après validation.
        Sinon     → raisons affichées + liens vers les contenus gratuits.
        Si data-historique est rempli, chaque envoi est aussi enregistré
        dans la feuille Google Sheets (voir outils/historique-google-sheets.gs). */
@@ -1972,14 +1976,15 @@
         return source;
       }
 
-      // Envoi "sans attendre" : si l'enregistrement échoue, le visiteur
-      // voit quand même son résultat.
-      function enregistrer(prenom, email, raisons) {
-        if (!historique || form.elements.site.value) return;   // robot : on ignore
-        fetch(historique, {
+      // Non éligible : envoi "sans attendre" (le résultat s'affiche quoi qu'il arrive).
+      // Éligible : on attend la réponse « ok » du script, sinon la demande
+      // serait perdue et la personne attendrait un email qui n'arrive jamais.
+      function enregistrer(prenom, email, raisons, attendre) {
+        if (!historique) return Promise.reject(new Error('pas d\'adresse'));
+        return fetch(historique, {
           method: 'POST',
-          mode: 'no-cors',
-          keepalive: true,
+          mode: attendre ? 'cors' : 'no-cors',
+          keepalive: !attendre,
           body: new URLSearchParams({
             prenom: prenom,
             email: email,
@@ -1993,7 +1998,10 @@
             raisons: raisons.join(' / '),
             source: sourceVisite()
           })
-        }).catch(function () {});
+        }).then(function (rep) {
+          if (!attendre) return;
+          return rep.text().then(function (texte) { if (texte.trim() !== 'ok') throw new Error(texte); });
+        });
       }
 
       function afficherFormulaire() {
@@ -2017,17 +2025,34 @@
           form.querySelectorAll('[data-bloquant]:checked'),
           function (choix) { return choix.dataset.bloquant; }
         );
-        var resume = Array.prototype.map.call(
-          form.querySelectorAll('[data-resume]'),
-          function (question) {
-            var champ = question.querySelector('input, select');
-            return question.dataset.resume + ' : ' + reponse(champ.name);
-          }
-        ).join(' | ');
-        if (sourceVisite()) resume += ' | Source : ' + sourceVisite();
+        if (form.elements.site.value) return;   // robot : on ignore
 
-        enregistrer(prenom, email, raisons);
+        if (raisons.length) {
+          enregistrer(prenom, email, raisons, false).catch(function () {});
+          montrer(prenom, email, raisons);
+          return;
+        }
+        var bouton = form.querySelector('button[type="submit"]');
+        var texteBouton = bouton.innerHTML;
+        var erreur = form.querySelector('.formulaire__erreur');
+        if (erreur) erreur.remove();
+        bouton.disabled = true;
+        bouton.textContent = 'Envoi de ta demande…';
+        enregistrer(prenom, email, raisons, true).then(function () {
+          montrer(prenom, email, raisons);
+        }).catch(function () {
+          erreur = document.createElement('p');
+          erreur.className = 'paiement__etat est-erreur formulaire__erreur';
+          erreur.setAttribute('role', 'alert');
+          erreur.textContent = 'L\'envoi n\'a pas marché. Vérifie ta connexion et réessaie. Si ça bloque encore, écris à claudiomarcellyb@gmail.com.';
+          bouton.insertAdjacentElement('afterend', erreur);
+        }).then(function () {
+          bouton.disabled = false;
+          bouton.innerHTML = texteBouton;
+        });
+      });
 
+      function montrer(prenom, email, raisons) {
         var modele = document.getElementById(raisons.length ? 'modele-refus' : 'modele-eligible');
         var contenu = modele.content.cloneNode(true);
 
@@ -2040,17 +2065,7 @@
           liste.appendChild(li);
         });
 
-        var calendly = contenu.querySelector('[data-champ="calendly"]');
-        if (calendly) {
-          var url = new URL(form.dataset.calendly);
-          url.searchParams.set('name', prenom);         // formulaire Calendly à un seul champ « Nom »
-          url.searchParams.set('first_name', prenom);   // formulaire avec « Prénom » + « Nom de famille »
-          url.searchParams.set('email', email);
-          url.searchParams.set('a1', resume);
-          url.searchParams.set('utm_source', 'linkinbio');                     // visible dans le rendez-vous
-          if (sourceVisite()) url.searchParams.set('utm_content', sourceVisite());
-          calendly.href = url.toString();
-        }
+        contenu.querySelectorAll('[data-champ="email"]').forEach(function (n) { n.textContent = email; });
 
         // Les liens "contenus gratuits" reprennent ceux des cartes réseaux
         contenu.querySelectorAll('[data-lien]').forEach(function (a) {
@@ -2067,7 +2082,7 @@
         intro.hidden = true;
         resultat.hidden = false;
         resultat.focus();
-      });
+      }
     })();
 
     /* Formation : envoi de la capture de paiement au script Google (Drive +
