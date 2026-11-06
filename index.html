@@ -1425,16 +1425,14 @@
         <h3 class="appel__titre">Des vidéos comme les miennes&nbsp;? <em>Je t'apprends.</em></h3>
         <p class="appel__texte">Une formation de 1&nbsp;h&nbsp;30 en visio pour apprendre à créer des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts.</p>
 
-        <!-- MAINTENANCE : tant que ce message est affiché, les étapes et le
-             formulaire de paiement sont masqués (attribut hidden).
-             Pour rétablir : ajoutez hidden sur ce <p> et retirez-le
-             de <ol class="etapes"> et de <form id="paiement">. -->
-        <p class="paiement__etat est-ok" id="paiement-maintenance">
+        <!-- MAINTENANCE : pour fermer les inscriptions, retirez hidden de ce <p>
+             et ajoutez hidden sur <ol class="etapes"> et sur <form id="paiement">. -->
+        <p class="paiement__etat est-ok" id="paiement-maintenance" hidden>
           <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
           Inscriptions en cours de mise à jour. Reviens très bientôt&nbsp;!
         </p>
 
-        <ol class="etapes" hidden>
+        <ol class="etapes">
           <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
           <li>Envoie la capture du paiement avec le formulaire ci-dessous.</li>
           <li>Réserve ton créneau de formation.</li>
@@ -1443,7 +1441,7 @@
         <!-- Envoi de la capture : enregistrée dans le Google Drive de Claudio
              (dossier privé) + une ligne dans l'onglet PAIEMENTS du tableau.
              Le bouton « Réserver ma formation » apparaît une fois la capture reçue. -->
-        <form class="formulaire formulaire--paiement" id="paiement" hidden>
+        <form class="formulaire formulaire--paiement" id="paiement">
           <div class="champ">
             <label for="p-prenom">Ton prénom</label>
             <input type="text" id="p-prenom" name="prenom" autocomplete="given-name" required />
