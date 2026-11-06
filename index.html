@@ -561,6 +561,28 @@
       line-height: 1.4;
     }
     .paiement__etat.est-ok { background: var(--jaune); }
+
+    /* Numéro à payer : affiché seulement après le choix du moyen de paiement */
+    .moyen-info {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: var(--bord) solid var(--encre);
+      border-radius: 12px;
+      background: var(--jaune);
+      line-height: 1.4;
+    }
+    .moyen-info[hidden] { display: none; }
+    .moyen-info--autre { background: var(--bleu); }
+    .moyen-info__numero {
+      font: 800 1.5rem/1.1 var(--mono);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .moyen-info .bouton { min-height: 46px; box-shadow: 3px 3px 0 var(--encre); }
+    .moyen-info a:not(.bouton) { color: var(--encre); font-weight: 700; overflow-wrap: anywhere; }
+    .paiement__suite { display: grid; gap: 16px; }
+    .paiement__suite[hidden] { display: none; }
     .paiement__etat.est-erreur { background: var(--encre); color: #fff; }
 
     .appel__titre {
@@ -1577,8 +1599,8 @@
 
         <div class="appel__intro" id="formation-inscription" hidden>
         <ol class="etapes">
-          <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
-          <li>Envoie la capture et la référence du paiement avec le formulaire ci-dessous.</li>
+          <li>Choisis ton moyen de paiement&nbsp;: le numéro où envoyer <strong>100&nbsp;000&nbsp;Ar</strong> s'affiche.</li>
+          <li>Après le paiement, envoie la capture et la référence avec le formulaire.</li>
           <li>Je vérifie ton paiement, puis tu reçois par email <strong>ton lien de réservation personnel</strong> (sous 24&nbsp;h).</li>
         </ol>
 
@@ -1586,6 +1608,36 @@
              (dossier privé) + une ligne dans l'onglet PAIEMENTS du tableau.
              Aucun lien de réservation ici : il part par email après vérification. -->
         <form class="formulaire formulaire--paiement" id="paiement">
+          <fieldset class="question">
+            <legend>Comment veux-tu payer&nbsp;?</legend>
+            <div class="choix">
+              <label><input type="radio" name="moyen" value="Orange Money" required /><span>Orange Money</span></label>
+              <label><input type="radio" name="moyen" value="MVola" /><span>MVola</span></label>
+              <label><input type="radio" name="moyen" value="Virement bancaire" /><span>Je n'ai ni l'un ni l'autre</span></label>
+            </div>
+          </fieldset>
+
+          <!-- Numéros de paiement : modifiez-les ici (data-numero = ce qui est copié) -->
+          <div class="moyen-info" data-moyen="Orange Money" hidden>
+            <p>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par Orange Money au nom de <strong>Claudio Marcelly</strong>&nbsp;:</p>
+            <p class="moyen-info__numero">032&nbsp;79&nbsp;100&nbsp;07</p>
+            <button class="bouton bouton--clair" type="button" data-copier="0327910007"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le numéro</button>
+          </div>
+          <div class="moyen-info" data-moyen="MVola" hidden>
+            <p>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par MVola au nom de <strong>Claudio Marcelly</strong>&nbsp;:</p>
+            <p class="moyen-info__numero">034&nbsp;22&nbsp;337&nbsp;84</p>
+            <button class="bouton bouton--clair" type="button" data-copier="0342233784"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le numéro</button>
+          </div>
+          <div class="moyen-info moyen-info--autre" data-moyen="Virement bancaire" hidden>
+            <p><strong>Pas d'Orange Money ni de MVola&nbsp;?</strong> Écris-moi&nbsp;: on trouve une autre solution, ou je t'envoie mes coordonnées pour un <strong>virement bancaire</strong>.</p>
+            <a class="bouton bouton--clair" id="moyen-ecrire"
+               href="mailto:claudiomarcellyb@gmail.com?subject=Formation%20vid%C3%A9o%20%3A%20autre%20moyen%20de%20paiement&body=Bonjour%20Claudio%2C%0A%0AJe%20veux%20m'inscrire%20%C3%A0%20la%20formation%20vid%C3%A9o%20(100%20000%20Ar)%20mais%20je%20n'ai%20ni%20Orange%20Money%20ni%20MVola.%0AJe%20suis%20dans%20ce%20pays%20%3A%20%0AJe%20peux%20payer%20par%20(virement%20bancaire%2C%20autre)%20%3A%20%0A%0AMerci%20!">
+              <i class="fa-solid fa-envelope" aria-hidden="true"></i> M'écrire
+            </a>
+            <p>Ou directement à <a href="mailto:claudiomarcellyb@gmail.com">claudiomarcellyb@gmail.com</a>. Après ton virement, reviens ici pour envoyer le reçu.</p>
+          </div>
+
+          <div class="paiement__suite" id="paiement-suite" hidden>
           <div class="champ">
             <label for="p-prenom">Ton prénom</label>
             <input type="text" id="p-prenom" name="prenom" autocomplete="given-name" required />
@@ -1594,15 +1646,8 @@
             <label for="p-email">Ton email</label>
             <input type="email" id="p-email" name="email" autocomplete="email" inputmode="email" required />
           </div>
-          <fieldset class="question">
-            <legend>Payé avec</legend>
-            <div class="choix">
-              <label><input type="radio" name="moyen" value="Orange Money" required /><span>Orange Money</span></label>
-              <label><input type="radio" name="moyen" value="MVola" /><span>MVola</span></label>
-            </div>
-          </fieldset>
           <div class="champ">
-            <label for="p-numero">Numéro utilisé pour payer</label>
+            <label for="p-numero" id="p-numero-titre">Numéro utilisé pour payer</label>
             <input type="tel" id="p-numero" name="numero" autocomplete="tel" inputmode="tel" required />
           </div>
           <div class="champ">
@@ -1620,6 +1665,7 @@
           </div>
           <button class="bouton" type="submit">Envoyer la capture</button>
           <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> // Ta capture est enregistrée en privé : seul Claudio peut la voir.</p>
+          </div>
         </form>
         <p class="paiement__etat" id="paiement-etat" role="status" aria-live="polite" hidden></p>
         </div>
@@ -2042,8 +2088,53 @@
           ouvrir.hidden = true;
           ouvrir.setAttribute('aria-expanded', 'true');
           inscription.hidden = false;
-          form.elements.prenom.focus();
+          form.querySelector('input[name="moyen"]').focus();
         });
+      }
+
+      // Choix du moyen de paiement : affiche son numéro (ou le contact), puis le formulaire
+      var suite = document.getElementById('paiement-suite');
+      var titreNumero = document.getElementById('p-numero-titre');
+      form.querySelectorAll('input[name="moyen"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          form.querySelectorAll('.moyen-info').forEach(function (bloc) {
+            bloc.hidden = bloc.dataset.moyen !== radio.value;
+          });
+          var virement = radio.value === 'Virement bancaire';
+          titreNumero.textContent = virement ? 'Nom du compte qui a payé' : 'Numéro utilisé pour payer';
+          form.elements.numero.type = virement ? 'text' : 'tel';
+          form.elements.numero.setAttribute('autocomplete', virement ? 'name' : 'tel');
+          form.elements.numero.setAttribute('inputmode', virement ? 'text' : 'tel');
+          form.elements.reference.placeholder = virement ? 'Sur le reçu du virement' : 'Dans le SMS de confirmation';
+          if (suite) suite.hidden = false;
+        });
+      });
+
+      // « Copier le numéro »
+      form.querySelectorAll('[data-copier]').forEach(function (b) {
+        var texteDepart = b.innerHTML;
+        b.addEventListener('click', function () {
+          var ok = function () {
+            b.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Numéro copié';
+            setTimeout(function () { b.innerHTML = texteDepart; }, 2000);
+          };
+          var valeur = b.dataset.copier;
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(valeur).then(ok, function () { copieSecours(valeur) && ok(); });
+          } else if (copieSecours(valeur)) ok();
+        });
+      });
+      function copieSecours(valeur) {
+        var zone = document.createElement('textarea');
+        zone.value = valeur;
+        zone.setAttribute('readonly', '');
+        zone.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(zone);
+        zone.select();
+        var reussi = false;
+        try { reussi = document.execCommand('copy'); } catch (err) {}
+        zone.remove();
+        return reussi;
       }
 
       function afficher(texte, classe) {
