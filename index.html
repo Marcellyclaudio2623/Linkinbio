@@ -623,6 +623,113 @@
     }
 
     /* =========================================================
+       8 bis. SONDAGE « D'où viens-tu ? »
+       Carte posée en bas de l'écran : elle ne bloque pas la page.
+       ========================================================= */
+    .sondage {
+      position: fixed;
+      z-index: 50;
+      left: 50%;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      width: min(448px, calc(100% - 32px));
+      translate: -50% 0;
+      isolation: isolate;
+      padding: 16px 18px 10px;
+      animation: sondage-arrivee 450ms var(--ressort) both;
+    }
+    .sondage::before {                     /* la carte */
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: var(--carte);
+      border: var(--bord) solid var(--encre);
+      border-radius: var(--rayon);
+    }
+    .sondage::after {                      /* son ombre en points */
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      border-radius: var(--rayon);
+      background: var(--trame);
+      transform: translate(var(--ombre), var(--ombre));
+    }
+    .sondage.est-partie { animation: sondage-depart 280ms var(--doux) both; }
+    /* Tant que le sondage est affiché, la page gagne de la place en bas :
+       on peut toujours faire défiler les derniers liens au-dessus de lui */
+    .page { padding-bottom: calc(28px + var(--place-sondage, 0px)); }
+    @keyframes sondage-arrivee {
+      from { opacity: 0; translate: -50% 40px; }
+      to   { opacity: 1; translate: -50% 0; }
+    }
+    @keyframes sondage-depart {
+      to { opacity: 0; translate: -50% 40px; }
+    }
+
+    .sondage__fermer {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 50%;
+      background: none;
+      color: var(--encre);
+      font-size: 1.125rem;
+      cursor: pointer;
+    }
+    .sondage__fermer:focus-visible { outline: 3px dashed var(--rouge); outline-offset: -4px; }
+
+    .sondage__titre {
+      margin: 4px 0 12px;
+      font-weight: 800;
+      font-size: 1.375rem;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    /* Réponses en un clic : 3 par ligne, 2 sur les très petits écrans */
+    .sondage__choix {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 359px) {
+      .sondage__choix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .sondage__choix button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 4px;
+      border: 2px solid var(--encre);
+      border-radius: 999px;
+      background: var(--carte);
+      color: var(--encre);
+      font: 700 0.8125rem/1.1 var(--sans);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background-color 150ms var(--doux), transform 200ms var(--ressort);
+    }
+    @media (hover: hover) {
+      .sondage__choix button:hover { background: var(--jaune); transform: translateY(-2px); }
+    }
+    .sondage__choix button:active { transform: scale(0.96); }
+    .sondage__choix button:focus-visible { outline: 3px dashed var(--rouge); outline-offset: 3px; }
+    .sondage .bouton-texte { display: block; margin: 6px auto 0; }
+
+    .sondage__merci {
+      padding: 10px 36px 12px 0;
+      font-weight: 800;
+      font-size: 1.125rem;
+    }
+
+    /* =========================================================
        9. ÉCRANS PLUS GRANDS
        ========================================================= */
     @media (min-width: 768px) {
@@ -659,6 +766,9 @@
       .lien:hover, .lien:active, .lien:hover .lien__icone,
       .bouton:hover, .bouton:active, .choix input:checked + span { transform: none; }
       .lien:hover::after, .lien:active::after { transform: translate(var(--ombre), var(--ombre)); }
+      .sondage, .sondage.est-partie { animation: none; }
+      .sondage__choix button { transition: none; }
+      .sondage__choix button:hover, .sondage__choix button:active { transform: none; }
     }
   </style>
 </head>
@@ -1368,6 +1478,36 @@
 
   </main>
 
+  <!-- =====================================================
+       SONDAGE « D'où viens-tu ? »
+       Apparaît en bas de l'écran à l'arrivée, une seule fois par visiteur,
+       sans bloquer la page. La réponse est enregistrée dans l'onglet
+       SONDAGE du tableau Google, et jointe au formulaire (tableau, HubSpot,
+       Calendly) si la personne le remplit ensuite.
+       Un lien qui contient ?src=tiktok (ou utm_source=tiktok) donne la
+       source directement : la question n'est alors pas posée.
+       Pour ajouter une réponse : copiez un bouton et changez data-source.
+       ===================================================== -->
+  <aside class="sondage" id="sondage" hidden aria-labelledby="sondage-titre">
+    <button class="sondage__fermer" type="button" data-sondage="passer" aria-label="Fermer la question">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+    <div class="sondage__question">
+      <p class="label">// Petite question</p>
+      <h2 class="sondage__titre" id="sondage-titre">D'où viens-tu&nbsp;?</h2>
+      <div class="sondage__choix">
+        <button type="button" data-source="TikTok"><i class="fa-brands fa-tiktok" aria-hidden="true"></i> TikTok</button>
+        <button type="button" data-source="Instagram"><i class="fa-brands fa-instagram" aria-hidden="true"></i> Instagram</button>
+        <button type="button" data-source="YouTube"><i class="fa-brands fa-youtube" aria-hidden="true"></i> YouTube</button>
+        <button type="button" data-source="WhatsApp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp</button>
+        <button type="button" data-source="Un ami"><i class="fa-solid fa-user-group" aria-hidden="true"></i> Un ami</button>
+        <button type="button" data-source="Autre"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i> Autre</button>
+      </div>
+      <button class="bouton-texte" type="button" data-sondage="passer">Passer</button>
+    </div>
+    <p class="sondage__merci" hidden role="status">Merci&nbsp;! Bonne visite.</p>
+  </aside>
+
   <script>
     /* Tenue du personnage : une couleur de polo différente à chaque visite.
        Au chargement, les couleurs défilent vite puis s'arrêtent sur la
@@ -1423,6 +1563,85 @@
       });
     })();
 
+    /* Sondage « D'où viens-tu ? » : posé une seule fois par visiteur.
+       La source (réponse au sondage, ou ?src= / utm_source= dans le lien)
+       est gardée dans le navigateur pour être jointe au formulaire, et
+       enregistrée dans l'onglet SONDAGE du tableau (si l'historique est actif). */
+    (function () {
+      var sondage = document.getElementById('sondage');
+      var form = document.getElementById('eligibilite');
+      var perso = document.getElementById('perso');
+      if (!sondage) return;
+      var historique = form ? form.dataset.historique : '';
+
+      function lire(cle) { try { return localStorage.getItem(cle) || ''; } catch (e) { return ''; } }
+      function garder(cle, valeur) { try { localStorage.setItem(cle, valeur); } catch (e) {} }
+
+      function envoyer(source, origine) {
+        if (!historique) return;
+        fetch(historique, {
+          method: 'POST',
+          mode: 'no-cors',
+          keepalive: true,
+          body: new URLSearchParams({ type: 'sondage', source: source, origine: origine })
+        }).catch(function () {});
+      }
+
+      // 1. Le lien indique déjà la source (ex. lien de la bio TikTok avec ?src=tiktok)
+      var params = new URLSearchParams(location.search);
+      var brut = (params.get('src') || params.get('utm_source') || '').trim().slice(0, 40);
+      if (brut) {
+        var connues = { tiktok: 'TikTok', instagram: 'Instagram', ig: 'Instagram', youtube: 'YouTube', yt: 'YouTube', whatsapp: 'WhatsApp', wa: 'WhatsApp' };
+        var source = connues[brut.toLowerCase()] || brut;
+        if (lire('source-visite') !== source) envoyer(source, 'lien');
+        garder('source-visite', source);
+        garder('sondage-vu', '1');
+        return;
+      }
+
+      // 2. Question déjà posée lors d'une visite précédente
+      if (lire('sondage-vu')) return;
+
+      function fermer() {
+        sondage.classList.add('est-partie');
+        if (perso) perso.dataset.expr = 'content';
+        setTimeout(function () {
+          sondage.hidden = true;
+          document.documentElement.style.removeProperty('--place-sondage');
+        }, 300);
+      }
+      function repondre(source) {
+        garder('source-visite', source);
+        garder('sondage-vu', '1');
+        envoyer(source, 'sondage');
+        sondage.querySelector('.sondage__question').hidden = true;
+        sondage.querySelector('.sondage__merci').hidden = false;
+        setTimeout(fermer, 1400);
+      }
+      function passer() {
+        garder('sondage-vu', '1');
+        envoyer('(passé)', 'sondage');
+        fermer();
+      }
+
+      sondage.querySelectorAll('[data-source]').forEach(function (b) {
+        b.addEventListener('click', function () { repondre(b.dataset.source); });
+      });
+      sondage.querySelectorAll('[data-sondage="passer"]').forEach(function (b) {
+        b.addEventListener('click', passer);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !sondage.hidden && !sondage.classList.contains('est-partie')) passer();
+      });
+
+      // Apparaît juste après la page ; le personnage prend l'air de poser la question
+      setTimeout(function () {
+        sondage.hidden = false;
+        document.documentElement.style.setProperty('--place-sondage', (sondage.offsetHeight + 24) + 'px');
+        if (perso) perso.dataset.expr = 'question';
+      }, 900);
+    })();
+
     /* Formulaire d'éligibilité : le calcul se fait dans le navigateur.
        Éligible  → lien Calendly pré-rempli (prénom, email, réponses en 1re question).
        Sinon     → raisons affichées + liens vers les contenus gratuits.
@@ -1446,6 +1665,13 @@
         return form.elements[nom] ? form.elements[nom].value : '';
       }
 
+      // Réponse au sondage « D'où viens-tu ? » (vide si la personne ne l'a pas donnée)
+      function sourceVisite() {
+        var source = '';
+        try { source = localStorage.getItem('source-visite') || ''; } catch (e) {}
+        return source;
+      }
+
       // Envoi "sans attendre" : si l'enregistrement échoue, le visiteur
       // voit quand même son résultat.
       function enregistrer(prenom, email, raisons) {
@@ -1464,7 +1690,8 @@
             temps: reponse('temps'),
             delai: reponse('delai'),
             eligible: raisons.length ? 'Non' : 'Oui',
-            raisons: raisons.join(' / ')
+            raisons: raisons.join(' / '),
+            source: sourceVisite()
           })
         }).catch(function () {});
       }
@@ -1497,6 +1724,7 @@
             return question.dataset.resume + ' : ' + reponse(champ.name);
           }
         ).join(' | ');
+        if (sourceVisite()) resume += ' | Source : ' + sourceVisite();
 
         enregistrer(prenom, email, raisons);
 

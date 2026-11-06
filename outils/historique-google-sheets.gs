@@ -2,9 +2,11 @@
  * Historique du formulaire d'éligibilité (page Link in Bio)
  *
  * Chaque formulaire envoyé depuis la page :
- *  - ajoute une ligne dans la feuille Google Sheets qui contient ce script ;
+ *  - ajoute une ligne dans le premier onglet de la feuille Google Sheets ;
  *  - crée (ou met à jour) le contact dans HubSpot, si la clé HubSpot est réglée ;
  *  - envoie un email d'alerte, si EMAIL_ALERTE est rempli.
+ * Chaque réponse au sondage « D'où viens-tu ? » ajoute une ligne dans
+ * l'onglet SONDAGE (créé tout seul à la première réponse), sans email.
  *
  * Installation (une seule fois, environ 5 minutes) :
  *  1. Ouvrez sheets.new pour créer une feuille, nommez-la « Réponses Link in Bio ».
@@ -51,8 +53,13 @@ var COLONNES = [
   ['Temps par semaine', 'temps'],
   ["Passage à l'action", 'delai'],
   ['Éligible', 'eligible'],
-  ['Raisons', 'raisons']
+  ['Raisons', 'raisons'],
+  ['Source de la visite', 'source']
 ];
+
+// Onglet des réponses au sondage « D'où viens-tu ? »
+var ONGLET_SONDAGE = 'SONDAGE';
+var COLONNES_SONDAGE = ['Date', 'Source', 'Origine'];
 
 // Champ envoyé par la page → propriété du contact dans HubSpot
 var HUBSPOT_CHAMPS = {
@@ -63,25 +70,24 @@ var HUBSPOT_CHAMPS = {
   investir: 'lib_pret_investir',
   temps: 'lib_temps_semaine',
   delai: 'lib_passage_action',
-  raisons: 'lib_raisons'
+  raisons: 'lib_raisons',
+  source: 'lib_source_visite'
 };
 
 function doPost(e) {
   var champs = (e && e.parameter) || {};
+  if (champs.type === 'sondage') return enregistrerSondage(champs);
   // Envoi vide (script lancé à la main, robot…) : on n'enregistre rien
   if (!champs.email && !champs.prenom) return ContentService.createTextOutput('ignoré');
 
   var verrou = LockService.getScriptLock();
   verrou.waitLock(10000);   // deux envois simultanés ne s'écrasent pas
   try {
-    var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-
-    // Première réponse : on crée la ligne de titres
-    if (feuille.getLastRow() === 0) {
-      feuille.appendRow(COLONNES.map(function (c) { return c[0]; }));
-      feuille.getRange(1, 1, 1, COLONNES.length).setFontWeight('bold');
-      feuille.setFrozenRows(1);
-    }
+    // Premier onglet qui n'est pas celui du sondage (son nom importe peu)
+    var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (f) {
+      return f.getName() !== ONGLET_SONDAGE;
+    })[0];
+    titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
     var ligne = COLONNES.map(function (c) { return c[1] ? propre(champs[c[1]]) : new Date(); });
     feuille.appendRow(ligne);
@@ -109,6 +115,36 @@ function doPost(e) {
   } finally {
     verrou.releaseLock();
   }
+}
+
+// Une réponse au sondage = une ligne dans l'onglet SONDAGE (ni email, ni HubSpot).
+// Origine : « sondage » (réponse cliquée) ou « lien » (source donnée par ?src= dans le lien).
+function enregistrerSondage(champs) {
+  var source = propre(champs.source);
+  if (!source) return ContentService.createTextOutput('ignoré');
+  var verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try {
+    var classeur = SpreadsheetApp.getActiveSpreadsheet();
+    var feuille = classeur.getSheetByName(ONGLET_SONDAGE) ||
+      classeur.insertSheet(ONGLET_SONDAGE, classeur.getSheets().length);   // ajouté en dernier
+    titres(feuille, COLONNES_SONDAGE);
+    feuille.appendRow([new Date(), source, propre(champs.origine)]);
+    return ContentService.createTextOutput('ok');
+  } finally {
+    verrou.releaseLock();
+  }
+}
+
+// Écrit la ligne de titres en haut de l'onglet si elle manque ou a changé
+// (par exemple quand une colonne est ajoutée).
+function titres(feuille, liste) {
+  var plage = feuille.getRange(1, 1, 1, liste.length);
+  if (feuille.getLastRow() > 0 && plage.getValues()[0].join('|') === liste.join('|')) return;
+  if (feuille.getLastRow() === 0) feuille.appendRow(liste);
+  else plage.setValues([liste]);
+  plage.setFontWeight('bold');
+  feuille.setFrozenRows(1);
 }
 
 // Met à jour le contact s'il existe déjà (même email), sinon le crée comme lead.
