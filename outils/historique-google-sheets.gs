@@ -14,6 +14,9 @@
  * vous choisissez « Validé » dans la colonne Statut de PAIEMENTS (après
  * avoir vu l'argent arriver sur Orange Money / MVola), le script envoie à
  * la personne un lien Calendly valable pour UNE seule réservation.
+ * Même principe pour l'appel découverte LLC : une demande éligible arrive
+ * en « À vérifier » dans l'onglet du formulaire ; « Validé » envoie le lien
+ * de réservation de l'appel, « Refusé » un email poli avec les contenus gratuits.
  *
  * Installation (une seule fois, environ 5 minutes) :
  *  1. Ouvrez sheets.new pour créer une feuille, nommez-la « Réponses Link in Bio ».
@@ -75,8 +78,14 @@ var COLONNES = [
   ["Passage à l'action", 'delai'],
   ['Éligible', 'eligible'],
   ['Raisons', 'raisons'],
-  ['Source de la visite', 'source']
+  ['Source de la visite', 'source'],
+  ['Statut', '_statut'],                 // rempli par le script (À vérifier / Non éligible)
+  ['Lien de réservation', '_lien']        // rempli quand vous choisissez Validé ou Refusé
 ];
+var STATUTS_FORMULAIRE = ['À vérifier', 'Validé', 'Refusé', 'Non éligible'];
+var LLC_NOM = /llc/i;   // reconnaît l'événement Calendly de l'appel découverte
+var LIENS_GRATUITS = '- Chaîne YouTube : https://www.youtube.com/@claudiocodemg\n' +
+  '- Chaîne WhatsApp : https://whatsapp.com/channel/0029VbE1RgAFSAswvhjujX30';
 
 // Onglet des réponses au sondage « D'où viens-tu ? »
 var ONGLET_SONDAGE = 'SONDAGE';
@@ -130,8 +139,13 @@ function doPost(e) {
     })[0];
     titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
-    var ligne = COLONNES.map(function (c) { return c[1] ? propre(champs[c[1]]) : new Date(); });
+    var ligne = COLONNES.map(function (c) {
+      if (c[1] === '_statut') return champs.eligible === 'Oui' ? 'À vérifier' : 'Non éligible';
+      if (c[1] === '_lien') return '';
+      return c[1] ? propre(champs[c[1]]) : new Date();
+    });
     feuille.appendRow(ligne);
+    listeStatuts(feuille, COLONNES.length - 1, STATUTS_FORMULAIRE);
 
     // HubSpot après la feuille : une erreur HubSpot ne fait jamais perdre la réponse
     var etatHubSpot;
@@ -148,6 +162,10 @@ function doPost(e) {
         EMAIL_ALERTE,
         'Formulaire Link in Bio : ' + valeur('prenom') + ' (éligible : ' + valeur('eligible') + ')',
         COLONNES.map(function (c, i) { return c[0] + ' : ' + ligne[i]; }).join('\n') +
+          (champs.eligible === 'Oui'
+            ? '\n\nÀ VALIDER : aucun lien de réservation n\'a été donné. Dans l\'onglet du formulaire, ' +
+              'colonne Statut, choisissez « Validé » (le lien de l\'appel part par email) ou « Refusé ».'
+            : '') +
           '\n\n' + etatHubSpot +
           '\nHistorique complet : ' + SpreadsheetApp.getActiveSpreadsheet().getUrl()
       );
@@ -209,7 +227,7 @@ function enregistrerPaiement(champs) {
       .getDisplayValues().some(function (r) { return String(r[0]).trim().toUpperCase() === reference; });
     feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source),
       reference || '(aucune)', 'À vérifier', deja ? '⚠ Référence déjà utilisée dans une autre ligne' : '']);
-    listeStatuts(feuille);
+    listeStatuts(feuille, 9, STATUTS_PAIEMENT);
     if (deja) feuille.getRange(feuille.getLastRow(), 1, 1, COLONNES_PAIEMENTS.length).setBackground('#FDE2DD');
     // Lien cliquable « Voir la capture » (sans formule : marche quelle que soit la langue du tableau)
     feuille.getRange(feuille.getLastRow(), 6).setRichTextValue(
@@ -320,14 +338,16 @@ function propre(valeur) {
 // ───────────────────────── Rendez-vous Calendly ─────────────────────────
 
 // À lancer UNE fois à la main : synchro Calendly toutes les 30 minutes +
-// envoi du lien de réservation quand un paiement passe en « Validé ».
+// envoi du lien de réservation quand une ligne passe en « Validé »
+// (paiements de la formation ET demandes d'appel LLC).
 function installerAutomatismes() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (['synchroCalendly', 'quandModifie'].indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('synchroCalendly').timeBased().everyMinutes(30).create();
   ScriptApp.newTrigger('quandModifie').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
-  var paiements = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLET_PAIEMENTS);
+  var classeur = SpreadsheetApp.getActiveSpreadsheet();
+  var paiements = classeur.getSheetByName(ONGLET_PAIEMENTS);
   if (paiements) {
     titres(paiements, COLONNES_PAIEMENTS);
     // Anciennes lignes sans statut : « À vérifier »
@@ -335,19 +355,74 @@ function installerAutomatismes() {
       var plage = paiements.getRange(2, 9, paiements.getLastRow() - 1, 1);
       plage.setValues(plage.getValues().map(function (r) { return [r[0] || 'À vérifier']; }));
     }
-    listeStatuts(paiements);
+    listeStatuts(paiements, 9, STATUTS_PAIEMENT);
   }
-  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation.');
+  // Onglet du formulaire : colonnes Statut + Lien ajoutées ; les anciennes
+  // lignes restent sans statut (elles avaient le lien public de l'époque).
+  var formulaire = ongletFormulaire(classeur);
+  if (formulaire) {
+    titres(formulaire, COLONNES.map(function (c) { return c[0]; }));
+    listeStatuts(formulaire, COLONNES.length - 1, STATUTS_FORMULAIRE);
+  }
+  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation (formation + appel LLC).');
   synchroCalendly();
 }
 // Ancien nom, gardé pour ne rien casser
 function installerSynchroCalendly() { installerAutomatismes(); }
 
-// Menu déroulant À vérifier / Validé / Refusé dans la colonne Statut
-function listeStatuts(feuille) {
+// Menu déroulant dans la colonne Statut (colonne n°, liste des choix)
+function listeStatuts(feuille, colonne, liste) {
   if (feuille.getMaxRows() < 2) return;
-  feuille.getRange(2, 9, feuille.getMaxRows() - 1, 1).setDataValidation(
-    SpreadsheetApp.newDataValidation().requireValueInList(STATUTS_PAIEMENT, true).setAllowInvalid(false).build());
+  feuille.getRange(2, colonne, feuille.getMaxRows() - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(liste, true).setAllowInvalid(false).build());
+}
+
+// Ce que fait « Validé » / « Refusé » dans chaque onglet
+function reglesValidation(feuille) {
+  if (feuille.getName() === ONGLET_PAIEMENTS) {
+    return {
+      statut: 9, lien: 10, prenom: 2, email: 3, evenement: FORMATION_NOM,
+      valide: function (prenom, lien) {
+        return {
+          subject: 'Ton paiement est validé : réserve ta formation vidéo',
+          body: 'Bonjour ' + prenom + ',\n\nTon paiement pour la formation vidéo (1 h 30) est bien reçu, merci !\n\n' +
+            'Choisis ton créneau ici. Ce lien est personnel et ne marche que pour une seule réservation :\n' +
+            lien + '\n\nÀ très vite,\nClaudio Marcelly'
+        };
+      },
+      refuse: function (prenom) {
+        return {
+          subject: 'Formation vidéo : paiement non reçu',
+          body: 'Bonjour ' + prenom + ',\n\nJe n\'ai pas trouvé ton paiement de 100 000 Ar sur mon compte. ' +
+            'Si tu as bien payé, réponds à cet email avec la référence de la transaction et je vérifie à nouveau.\n\nClaudio Marcelly'
+        };
+      }
+    };
+  }
+  var formulaire = ongletFormulaire(SpreadsheetApp.getActiveSpreadsheet());
+  if (formulaire && feuille.getName() === formulaire.getName()) {
+    return {
+      statut: COLONNES.length - 1, lien: COLONNES.length, prenom: 2, email: 3, evenement: LLC_NOM,
+      valide: function (prenom, lien) {
+        return {
+          subject: 'Ton appel découverte LLC : choisis ton créneau',
+          body: 'Bonjour ' + prenom + ',\n\nMerci pour tes réponses ! Ton profil correspond : je te propose un appel ' +
+            'découverte gratuit de 20 minutes pour parler de ton projet LLC.\n\n' +
+            'Choisis ton créneau ici. Ce lien est personnel et ne marche que pour une seule réservation :\n' +
+            lien + '\n\nÀ très vite,\nClaudio Marcelly'
+        };
+      },
+      refuse: function (prenom) {
+        return {
+          subject: 'Ta demande d\'appel découverte',
+          body: 'Bonjour ' + prenom + ',\n\nMerci pour ta demande. Pour l\'instant, je ne peux pas te proposer d\'appel : ' +
+            'je les réserve aux projets prêts à démarrer.\n\nEn attendant, tu peux avancer avec mes contenus gratuits :\n' +
+            LIENS_GRATUITS + '\n\nClaudio Marcelly'
+        };
+      }
+    };
+  }
+  return null;
 }
 
 // Déclenché à chaque modification de la feuille (installé par installerAutomatismes).
@@ -356,32 +431,27 @@ function listeStatuts(feuille) {
 function quandModifie(e) {
   if (!e || !e.range) return;
   var feuille = e.range.getSheet();
-  if (feuille.getName() !== ONGLET_PAIEMENTS || e.range.getColumn() !== 9 || e.range.getNumColumns() !== 1) return;
+  var regles = reglesValidation(feuille);
+  if (!regles || e.range.getColumn() !== regles.statut || e.range.getNumColumns() !== 1) return;
+  var largeur = Math.max(feuille.getLastColumn(), regles.lien);
   for (var r = e.range.getRow(); r < e.range.getRow() + e.range.getNumRows(); r++) {
     if (r < 2) continue;
-    var ligne = feuille.getRange(r, 1, 1, COLONNES_PAIEMENTS.length).getDisplayValues()[0];
-    var statut = ligne[8], dejaFait = ligne[9];
+    var ligne = feuille.getRange(r, 1, 1, largeur).getDisplayValues()[0];
+    var statut = ligne[regles.statut - 1], dejaFait = ligne[regles.lien - 1];
+    var prenom = ligne[regles.prenom - 1], email = String(ligne[regles.email - 1]).trim();
     if (/^(Envoyé|Refus envoyé)/.test(dejaFait)) continue;   // jamais deux fois
-    var cible = feuille.getRange(r, 10);
+    var cible = feuille.getRange(r, regles.lien);
     try {
+      if (!email) throw new Error('pas d\'email sur cette ligne');
       if (statut === 'Validé') {
-        var lien = lienFormation(ligne[1], ligne[2]);
-        MailApp.sendEmail({
-          to: ligne[2], name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE,
-          subject: 'Ton paiement est validé : réserve ta formation vidéo',
-          body: 'Bonjour ' + ligne[1] + ',\n\nTon paiement pour la formation vidéo (1 h 30) est bien reçu, merci !\n\n' +
-            'Choisis ton créneau ici. Ce lien est personnel et ne marche que pour une seule réservation :\n' +
-            lien + '\n\nÀ très vite,\nClaudio Marcelly'
-        });
+        var lien = lienCalendly(regles.evenement, prenom, email);
+        var message = regles.valide(prenom, lien);
+        MailApp.sendEmail({ to: email, name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE, subject: message.subject, body: message.body });
         cible.setValue('Envoyé le ' + maintenantTexte() + ' : ' + lien);
-        feuille.getRange(r, 1, 1, COLONNES_PAIEMENTS.length).setBackground('#E3F4E1');
+        feuille.getRange(r, 1, 1, regles.lien).setBackground('#E3F4E1');
       } else if (statut === 'Refusé') {
-        MailApp.sendEmail({
-          to: ligne[2], name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE,
-          subject: 'Formation vidéo : paiement non reçu',
-          body: 'Bonjour ' + ligne[1] + ',\n\nJe n\'ai pas trouvé ton paiement de 100 000 Ar sur mon compte. ' +
-            'Si tu as bien payé, réponds à cet email avec la référence de la transaction et je vérifie à nouveau.\n\nClaudio Marcelly'
-        });
+        var refus = regles.refuse(prenom);
+        MailApp.sendEmail({ to: email, name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE, subject: refus.subject, body: refus.body });
         cible.setValue('Refus envoyé le ' + maintenantTexte());
       }
     } catch (err) {
@@ -390,8 +460,9 @@ function quandModifie(e) {
   }
 }
 
-// Crée un lien Calendly à usage unique pour la formation, prérempli avec le nom et l'email
-function lienFormation(prenom, email) {
+// Crée un lien Calendly à usage unique pour l'événement dont le nom
+// correspond à « evenement », prérempli avec le nom et l'email
+function lienCalendly(evenement, prenom, email) {
   var jeton = PropertiesService.getScriptProperties().getProperty('CALENDLY_TOKEN');
   if (!jeton) throw new Error('jeton CALENDLY_TOKEN absent des propriétés du script');
   var entetes = { Authorization: 'Bearer ' + jeton };
@@ -404,11 +475,12 @@ function lienFormation(prenom, email) {
   }
   var moi = appel('https://api.calendly.com/users/me').resource.uri;
   var types = appel('https://api.calendly.com/event_types?active=true&count=100&user=' + encodeURIComponent(moi)).collection;
-  var formation = types.filter(function (t) { return FORMATION_NOM.test(t.name); })[0];
-  if (!formation) throw new Error('aucun événement Calendly actif avec « formation » dans son nom');
+  var type = types.filter(function (t) { return evenement.test(t.name); })[0];
+  if (!type) throw new Error('aucun événement Calendly actif ne correspond à ' + evenement);
   var lien = appel('https://api.calendly.com/scheduling_links',
-    { max_event_count: 1, owner: formation.uri, owner_type: 'EventType' }).resource.booking_url;
-  return lien + '?name=' + encodeURIComponent(prenom) + '&email=' + encodeURIComponent(email);
+    { max_event_count: 1, owner: type.uri, owner_type: 'EventType' }).resource.booking_url;
+  return lien + '?name=' + encodeURIComponent(prenom) + '&email=' + encodeURIComponent(email) +
+    '&utm_source=linkinbio';
 }
 
 function maintenantTexte() {
