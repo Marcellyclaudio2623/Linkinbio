@@ -7,7 +7,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Claudio Marcelly | Liens</title>
-  <meta name="description" content="Claudio Marcelly — E-commerce, tech &amp; IA, création vidéo et marketing digital. Réserve un appel, rejoins la formation vidéo ou retrouve-moi sur mes réseaux." />
+  <meta name="description" content="Claudio Marcelly — E-commerce, Tech &amp; IA, création vidéo et marketing digital. Réserve un appel, inscris-toi à la formation vidéo ou retrouve-moi sur WhatsApp, YouTube, TikTok et Instagram." />
   <meta name="theme-color" content="#F1EEE8" />
   <meta name="color-scheme" content="light" />
   <link rel="canonical" href="https://marcellyclaudio2623.github.io/Linkinbio/" />
@@ -16,14 +16,14 @@
   <meta property="og:type" content="profile" />
   <meta property="og:url" content="https://marcellyclaudio2623.github.io/Linkinbio/" />
   <meta property="og:title" content="Claudio Marcelly" />
-  <meta property="og:description" content="E-commerce, tech &amp; IA, création vidéo et marketing digital. Réserve un appel ou rejoins la formation vidéo." />
+  <meta property="og:description" content="E-commerce, Tech &amp; IA, création vidéo et marketing digital. Réserve un appel ou retrouve-moi sur mes réseaux." />
   <meta property="og:image" content="https://marcellyclaudio2623.github.io/Linkinbio/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
 
-  <!-- Favicon : la tête du personnage (fichier favicon.svg) -->
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <!-- Favicon : la tête du personnage -->
+  <link rel="icon" type="image/png" href="favicon.png" />
 
   <!-- =========================================================
        POLICES (charte du studio présentateur)
@@ -53,8 +53,8 @@
       --motif:  #CFC9BE;   /* points du fond */
       --encre:  #141414;   /* traits et texte */
       --gris:   #6B675F;   /* texte secondaire (contraste > 4.5:1) */
-      --rouge:  #E0402A;   /* accent principal */
-      --rouge-fonce: #C9361F; /* fond rouge sous du texte blanc (contraste 5,2:1) */
+      --rouge:  #E0402A;   /* accent principal (grands titres) */
+      --rouge-fort: #C9361F; /* rouge assombri pour le texte blanc (contraste 5.21:1) */
       --jaune:  #F6C21C;
       --bleu:   #7CC8F2;
       --carte:  #FFFFFF;
@@ -246,11 +246,12 @@
     .theme--jaune { background: var(--jaune); }
     .theme--bleu  { background: var(--bleu); }
     .theme--encre { background: var(--encre); color: #fff; }
-    .theme--rouge { background: var(--rouge-fonce); color: #fff; }
+    .theme--rouge { background: var(--rouge-fort); color: #fff; }
 
     /* Texte lu par les lecteurs d'écran, invisible à l'œil */
     .sr-only {
       position: absolute;
+      left: 0;
       width: 1px;
       height: 1px;
       margin: -1px;
@@ -260,7 +261,12 @@
       white-space: nowrap;
       border: 0;
     }
-    .sr-only * { width: 1px; min-width: 0; }   /* champs pièges : rien ne dépasse de l'écran */
+    .sr-only input {
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      border: 0;
+    }
 
     /* =========================================================
        5. LIENS : cartes blanches, trait épais, ombre en points
@@ -316,12 +322,12 @@
       font-size: 1.25rem;
       transition: transform 260ms var(--ressort);
     }
-    .lien--whatsapp  .lien__icone { background: var(--bleu);  color: var(--encre); }
-    .lien--youtube   .lien__icone { background: var(--rouge); color: #fff; }
-    .lien--tiktok    .lien__icone { background: var(--encre); color: #fff; }
-    .lien--instagram .lien__icone { background: var(--jaune); color: var(--encre); }
-    .lien--linkedin  .lien__icone { background: var(--bleu);  color: var(--encre); }
-    .lien--email     .lien__icone { background: var(--rouge); color: #fff; }
+    .lien--whatsapp  .lien__icone { background: var(--bleu);       color: var(--encre); }
+    .lien--youtube   .lien__icone { background: var(--rouge-fort); color: #fff; }
+    .lien--tiktok    .lien__icone { background: var(--encre);      color: #fff; }
+    .lien--instagram .lien__icone { background: var(--jaune);      color: var(--encre); }
+    .lien--linkedin  .lien__icone { background: var(--bleu);       color: var(--encre); }
+    .lien--email     .lien__icone { background: var(--rouge-fort); color: #fff; }
 
     .lien__texte {
       flex: 1;
@@ -421,6 +427,117 @@
     /* Boutons empilés (carte « Création vidéo ») */
     .appel__actions { display: grid; gap: 12px; }
 
+    /* Aperçu 9:16 + texte de la carte « Formation vidéo » */
+    .formation__intro {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+    }
+    .formation__texte {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .formation__preuve {
+      font-size: 0.75rem;
+      line-height: 1.35;
+      text-transform: none;
+    }
+    .apercu {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+    }
+    .apercu figcaption {
+      font-size: 0.6875rem;
+      text-transform: none;
+    }
+    .apercu__ecran,
+    .apercu video {
+      width: 84px;
+      aspect-ratio: 9 / 16;
+      border: var(--bord) solid var(--encre);
+      border-radius: 12px;
+      box-shadow: 3px 3px 0 var(--encre);
+      overflow: hidden;
+      display: block;
+      object-fit: cover;
+    }
+    .apercu__ecran {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 3px;
+      padding: 12px 6px 18px;
+      background-color: #0F172A;
+      background-image:
+        linear-gradient(rgba(124, 200, 242, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124, 200, 242, 0.14) 1px, transparent 1px);
+      background-size: 12px 12px;
+      color: #fff;
+      text-align: center;
+      user-select: none;
+    }
+    .apercu__barre {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--rouge);
+      transform-origin: left center;
+      animation: apercu-barre 3.6s ease-in-out infinite;
+    }
+    .apercu__ligne {
+      font-weight: 800;
+      font-size: 0.6875rem;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      animation: apercu-texte 3.6s var(--ressort) infinite;
+    }
+    .apercu__ligne--2 { animation-delay: 140ms; }
+    .apercu__mot {
+      margin-top: 2px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--rouge-fort);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.6875rem;
+      line-height: 1.1;
+      animation: apercu-mot 3.6s var(--ressort) infinite;
+    }
+    .apercu__lecture {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--jaune);
+      color: var(--encre);
+      display: grid;
+      place-items: center;
+      font-size: 0.5rem;
+    }
+    @keyframes apercu-barre {
+      0% { transform: scaleX(0.08); }
+      75%, 100% { transform: scaleX(1); }
+    }
+    @keyframes apercu-texte {
+      0%, 8% { opacity: 0; translate: 0 6px; scale: 0.92; }
+      22%, 85% { opacity: 1; translate: 0 0; scale: 1; }
+      95%, 100% { opacity: 0; translate: 0 -4px; scale: 0.96; }
+    }
+    @keyframes apercu-mot {
+      0%, 20% { opacity: 0; scale: 0.7; rotate: -4deg; }
+      35%, 85% { opacity: 1; scale: 1; rotate: -2deg; }
+      95%, 100% { opacity: 0; scale: 0.9; rotate: 0deg; }
+    }
+
     /* Étapes numérotées (paiement de la formation) */
     .etapes {
       display: grid;
@@ -430,91 +547,8 @@
       border-radius: 12px;
       line-height: 1.4;
     }
-    .etapes li::marker { color: var(--rouge); font-family: var(--mono); font-weight: 600; }
-    .etapes a { color: var(--rouge); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
-
-    /* Formation : aperçu 9:16 à gauche, texte à droite */
-    .formation__intro {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 14px;
-      align-items: center;
-    }
-    .formation__texte { display: grid; gap: 10px; }
-    .formation__preuve { text-transform: none; font-size: 0.75rem; line-height: 1.4; }
-
-    /* Mini-écran 9:16 dans le style des vidéos (fond bleu nuit quadrillé,
-       barre de progression rouge, titres qui arrivent, mot clé en rouge).
-       Une boucle de 4 s, en CSS seulement. */
-    .apercu { display: grid; gap: 6px; justify-items: center; }
-    .apercu .label { font-size: 0.6875rem; }
-    .apercu__ecran {
-      position: relative;
-      width: 92px;
-      aspect-ratio: 9 / 16;
-      overflow: hidden;
-      border: var(--bord) solid var(--encre);
-      border-radius: 14px;
-      background-color: #0f1b3d;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-      background-size: 12px 12px;
-      box-shadow: 4px 4px 0 var(--encre);
-    }
-    .apercu__barre {
-      position: absolute;
-      top: 7px; left: 7px; right: 7px;
-      height: 3px;
-      border-radius: 2px;
-      background: rgba(255, 255, 255, 0.22);
-    }
-    .apercu__barre::after {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 100%;
-      border-radius: 2px;
-      background: var(--rouge);
-      transform-origin: left;
-      animation: apercu-barre 4s linear infinite;
-    }
-    .apercu__ligne, .apercu__mot {
-      position: absolute;
-      left: 8px;
-      font-weight: 800;
-      font-size: 0.8125rem;
-      line-height: 1;
-      color: #fff;
-      opacity: 0;
-      animation: apercu-texte 4s var(--ressort) infinite;
-    }
-    .apercu__ligne--1 { top: 38px; }
-    .apercu__ligne--2 { top: 55px; animation-delay: 0.25s; }
-    .apercu__mot {
-      top: 74px;
-      padding: 2px 5px 3px;
-      border-radius: 4px;
-      background: var(--rouge-fonce);
-      animation-delay: 0.55s;
-    }
-    .apercu__lecture {
-      position: absolute;
-      right: 7px; bottom: 7px;
-      display: grid;
-      place-items: center;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      background: #fff;
-      color: var(--encre);
-      font-size: 0.5625rem;
-    }
-    @keyframes apercu-barre { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-    @keyframes apercu-texte {
-      0%, 8%   { opacity: 0; translate: -10px 0; }
-      18%, 85% { opacity: 1; translate: 0 0; }
-      95%, 100% { opacity: 0; translate: 0 0; }
-    }
+    .etapes li::marker { color: var(--rouge-fort); font-family: var(--mono); font-weight: 600; }
+    .etapes a { color: var(--rouge-fort); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 
     /* Formulaire d'envoi de la capture de paiement */
     .formulaire--paiement { margin-top: 0; gap: 16px; }
@@ -549,7 +583,7 @@
       padding: 12px 18px;
       border: var(--bord) solid var(--encre);
       border-radius: 14px;
-      background: var(--rouge-fonce);
+      background: var(--rouge-fort);
       color: #fff;
       font: 800 1rem/1.2 var(--sans);
       text-align: center;
@@ -619,7 +653,7 @@
     .question__num {
       font-family: var(--mono);
       font-weight: 600;
-      color: var(--rouge-fonce);
+      color: var(--rouge-fort);
       margin-right: 6px;
     }
 
@@ -880,9 +914,8 @@
       .lien:hover, .lien:active, .lien:hover .lien__icone,
       .bouton:hover, .bouton:active, .choix input:checked + span { transform: none; }
       .lien:hover::after, .lien:active::after { transform: translate(var(--ombre), var(--ombre)); }
+      .apercu__barre, .apercu__ligne, .apercu__mot { animation: none; }
       .sondage, .sondage.est-partie { animation: none; }
-      .apercu__ligne, .apercu__mot { animation: none; opacity: 1; }
-      .apercu__barre::after { animation: none; transform: scaleX(0.6); }
       .sondage__choix button { transition: none; }
       .sondage__choix button:hover, .sondage__choix button:active { transform: none; }
     }
@@ -1335,8 +1368,8 @@
       <ul class="themes reveal" style="--d: 2" aria-label="Mes thèmes">
         <li class="theme theme--jaune">E-commerce</li>
         <li class="theme theme--encre">Tech &amp; IA</li>
-        <li class="theme theme--rouge">Création Vidéo</li>
-        <li class="theme theme--bleu">Marketing Digital</li>
+        <li class="theme theme--bleu">Création Vidéo</li>
+        <li class="theme">Marketing Digital</li>
       </ul>
     </header>
 
@@ -1492,14 +1525,14 @@
     </section>
 
     <!-- =====================================================
-         FORMATION VIDÉO (payante) : réservation directe sur Calendly
+         FORMATION VIDÉO (payante) : réservation après envoi de la capture
          - Tarif et moyens de paiement : modifiez-les ici ET dans la
            description de l'événement Calendly.
-         - href = l'adresse de l'événement Calendly « Formation vidéo ».
-           Si vous renommez l'événement dans Calendly, son adresse peut
-           changer : mettez la nouvelle ici.
-         - Au clic, la page ajoute utm_source=linkinbio (et la réponse au
-           sondage dans utm_content) : Calendly l'affiche dans le rendez-vous.
+         - CALENDLY_FORMATION (dans le script) = l'adresse de l'événement
+           Calendly « Formation vidéo ». Si vous renommez l'événement dans
+           Calendly, mettez la nouvelle adresse dans cette variable.
+         - Le bouton de réservation est créé par JavaScript uniquement après
+           confirmation de la capture par le script Google.
          ===================================================== -->
     <section class="appel" aria-labelledby="titre-video">
       <h2 class="label reveal" id="titre-video" style="--d: 5">// Formation vidéo</h2>
@@ -1529,10 +1562,12 @@
           </div>
         </div>
 
-        <!-- MAINTENANCE (fermer les inscriptions) : collez ce paragraphe ici
-             et ajoutez hidden sur le bouton id="ouvrir-formation" :
-             <p class="paiement__etat est-ok"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
-               Inscriptions en cours de mise à jour. Reviens très bientôt&nbsp;!</p> -->
+        <!-- MAINTENANCE : pour fermer les inscriptions, décommentez ce <p>
+             et ajoutez hidden sur le bouton id="ouvrir-formation".
+        <p class="paiement__etat est-ok" id="paiement-maintenance">
+          <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+          Inscriptions en cours de mise à jour. Reviens très bientôt&nbsp;!
+        </p> -->
 
         <!-- Un seul bouton, comme la carte « Appel découverte » :
              les étapes et le formulaire de paiement s'ouvrent au clic -->
@@ -1631,7 +1666,7 @@
         <span class="lien__icone" aria-hidden="true"><i class="fa-brands fa-tiktok"></i></span>
         <span class="lien__texte">
           <span class="lien__titre">TikTok</span>
-          <span class="lien__info">// @claudiomarcelly</span>
+          <span class="lien__info">// les formats courts</span>
         </span>
         <i class="fa-solid fa-arrow-right lien__fleche" aria-hidden="true"></i>
       </a>
@@ -1690,10 +1725,10 @@
 
   <!-- =====================================================
        SONDAGE « D'où viens-tu ? »
-       Apparaît en bas de l'écran après 4 s ou au premier défilement, une seule fois par visiteur,
-       sans bloquer la page. La réponse est enregistrée dans l'onglet
-       SONDAGE du tableau Google, et jointe au formulaire (tableau, HubSpot,
-       Calendly) si la personne le remplit ensuite.
+       Apparaît en bas de l'écran après 4 s ou au premier défilement,
+       une seule fois par visiteur, sans bloquer la page. La réponse est
+       enregistrée dans l'onglet SONDAGE du tableau Google, et jointe au
+       formulaire (tableau, HubSpot, Calendly) si la personne le remplit.
        Un lien qui contient ?src=tiktok (ou utm_source=tiktok) donne la
        source directement : la question n'est alors pas posée.
        Pour ajouter une réponse : copiez un bouton et changez data-source.
@@ -1844,21 +1879,19 @@
         if (e.key === 'Escape' && !sondage.hidden && !sondage.classList.contains('est-partie')) passer();
       });
 
-      // Apparaît en douceur : après 4 s sur la page ou au premier défilement
-      // (le premier des deux), jamais pendant la lecture du haut de page.
-      // Le personnage prend alors l'air de poser la question.
-      var montre = false;
-      function montrer() {
-        if (montre) return;
-        montre = true;
-        window.removeEventListener('scroll', montrer);
+      // Apparaît après 4 secondes de navigation ou au premier défilement
+      var affiche = false;
+      function afficherSondage() {
+        if (affiche) return;
+        affiche = true;
         clearTimeout(minuteur);
+        window.removeEventListener('scroll', afficherSondage);
         sondage.hidden = false;
         document.documentElement.style.setProperty('--place-sondage', (sondage.offsetHeight + 24) + 'px');
         if (perso) perso.dataset.expr = 'question';
       }
-      var minuteur = setTimeout(montrer, 4000);
-      window.addEventListener('scroll', montrer, { passive: true });
+      var minuteur = setTimeout(afficherSondage, 4000);
+      window.addEventListener('scroll', afficherSondage, { passive: true, once: true });
     })();
 
     /* Formulaire d'éligibilité : le calcul se fait dans le navigateur.
@@ -1987,12 +2020,10 @@
 
     /* Formation : envoi de la capture de paiement au script Google (Drive +
        onglet PAIEMENTS). L'image est réduite (1600 px max, JPEG) avant l'envoi.
-       Le bouton de réservation n'existe pas dans la page : il est créé ici,
-       seulement après confirmation du script. */
+       Le bouton de réservation est créé uniquement après confirmation du script. */
     (function () {
-      // Adresse de l'événement Calendly « Formation vidéo 1h30 ».
-      // Si vous changez l'adresse de l'événement dans Calendly, mettez la nouvelle ici.
       var CALENDLY_FORMATION = 'https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative';
+      var MAIL = 'claudiomarcellyb@gmail.com';
 
       var form = document.getElementById('paiement');
       var etat = document.getElementById('paiement-etat');
@@ -2012,7 +2043,6 @@
           form.elements.prenom.focus();
         });
       }
-      var MAIL = 'claudiomarcellyb@gmail.com';
 
       function afficher(texte, classe) {
         etat.textContent = texte;
@@ -2077,7 +2107,8 @@
         }).then(function (rep) { return rep.text(); }).then(function (texte) {
           if (texte.trim() !== 'ok') throw new Error(texte);
           form.hidden = true;
-          afficher('Capture reçue, merci ' + prenom + ' ! Tu peux maintenant réserver ton créneau.', 'est-ok');
+          afficher('Capture reçue, merci ' + prenom + '\u00a0! Tu peux maintenant réserver ton créneau.', 'est-ok');
+
           var url = new URL(CALENDLY_FORMATION);
           url.searchParams.set('name', prenom);
           url.searchParams.set('first_name', prenom);
@@ -2086,14 +2117,28 @@
           url.searchParams.set('utm_source', 'linkinbio');
           if (source) url.searchParams.set('utm_content', source);
 
-          var reserver = document.createElement('a');
-          reserver.className = 'bouton';
-          reserver.id = 'reserver-formation';
+          var reserver = document.getElementById('reserver-formation');
+          if (!reserver) {
+            reserver = document.createElement('a');
+            reserver.className = 'bouton';
+            reserver.id = 'reserver-formation';
+            reserver.dataset.reaction = 'content pointe';
+            reserver.target = '_blank';
+            reserver.rel = 'noopener noreferrer';
+            reserver.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver ma formation';
+            var perso = document.getElementById('perso');
+            if (perso) {
+              var depart = { expr: perso.dataset.expr, pose: perso.dataset.pose, parle: perso.dataset.parle };
+              var jouer = function () { Object.assign(perso.dataset, { expr: 'content', pose: 'pointe', parle: 'non' }); };
+              var revenir = function () { Object.assign(perso.dataset, depart); };
+              reserver.addEventListener('pointerenter', jouer);
+              reserver.addEventListener('pointerleave', revenir);
+              reserver.addEventListener('focus', jouer);
+              reserver.addEventListener('blur', revenir);
+            }
+            etat.insertAdjacentElement('afterend', reserver);
+          }
           reserver.href = url.toString();
-          reserver.target = '_blank';
-          reserver.rel = 'noopener noreferrer';
-          reserver.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver ma formation';
-          etat.after(reserver);
           reserver.focus();
         }).catch(function () {
           bouton.disabled = false;
