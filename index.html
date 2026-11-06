@@ -419,6 +419,18 @@
     /* Boutons empilés (carte « Création vidéo ») */
     .appel__actions { display: grid; gap: 12px; }
 
+    /* Étapes numérotées (paiement de la formation) */
+    .etapes {
+      display: grid;
+      gap: 10px;
+      padding: 14px 14px 14px 2.2em;
+      border: 2px dashed var(--motif);
+      border-radius: 12px;
+      line-height: 1.4;
+    }
+    .etapes li::marker { color: var(--rouge); font-family: var(--mono); font-weight: 600; }
+    .etapes a { color: var(--rouge); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+
     .appel__titre {
       font-weight: 800;
       font-size: 1.375rem;
@@ -1383,25 +1395,34 @@
     </section>
 
     <!-- =====================================================
-         CRÉATION VIDÉO : réservation directe sur Calendly, sans questionnaire
-         - href = l'adresse de l'événement Calendly « Projet vidéo ».
+         FORMATION VIDÉO (payante) : réservation directe sur Calendly
+         - Tarif et moyens de paiement : modifiez-les ici ET dans la
+           description de l'événement Calendly.
+         - href = l'adresse de l'événement Calendly « Formation vidéo ».
            Si vous renommez l'événement dans Calendly, son adresse peut
            changer : mettez la nouvelle ici.
          - Au clic, la page ajoute utm_source=linkinbio (et la réponse au
            sondage dans utm_content) : Calendly l'affiche dans le rendez-vous.
          ===================================================== -->
     <section class="appel" aria-labelledby="titre-video">
-      <h2 class="label reveal" id="titre-video" style="--d: 5">// Création vidéo</h2>
+      <h2 class="label reveal" id="titre-video" style="--d: 5">// Formation vidéo</h2>
 
       <div class="appel__carte reveal" style="--d: 5">
-        <span class="pastille pastille--bleu">Vidéo sur mesure</span>
-        <h3 class="appel__titre">Une vidéo comme les miennes&nbsp;? <em>Parlons de ton projet.</em></h3>
-        <p class="appel__texte">Des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts. Réserve un appel de 30&nbsp;minutes en visio pour me présenter ton idée.</p>
+        <span class="pastille pastille--bleu">Formation 1&nbsp;h&nbsp;30 · 100&nbsp;000&nbsp;Ar</span>
+        <h3 class="appel__titre">Des vidéos comme les miennes&nbsp;? <em>Je t'apprends.</em></h3>
+        <p class="appel__texte">Une formation de 1&nbsp;h&nbsp;30 en visio pour apprendre à créer des vidéos explicatives animées, au format vertical pour TikTok, Reels et Shorts.</p>
+
+        <ol class="etapes">
+          <li>Envoie <strong>100&nbsp;000&nbsp;Ar</strong> par <strong>Orange Money</strong> (032&nbsp;79&nbsp;100&nbsp;07) ou <strong>MVola</strong> (034&nbsp;22&nbsp;337&nbsp;84), au nom de <strong>Claudio Marcelly</strong>.</li>
+          <li>Envoie la capture du paiement à <a href="mailto:claudiomarcellyb@gmail.com?subject=Paiement%20formation%20vid%C3%A9o">claudiomarcellyb@gmail.com</a>.</li>
+          <li>Réserve ton créneau de formation.</li>
+        </ol>
+
         <div class="appel__actions">
           <a class="bouton" data-calendly-direct data-reaction="content pointe"
              href="https://calendly.com/claudiomarcellyb/projet-video-30-min-ta-video-explicative"
              target="_blank" rel="noopener noreferrer">
-            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver un appel vidéo
+            <i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Réserver ma formation
           </a>
           <a class="bouton bouton--clair" data-reaction="surpris pointe"
              href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
