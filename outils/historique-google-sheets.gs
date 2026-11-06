@@ -36,6 +36,18 @@
  *  - Pour vérifier : choisissez la fonction « testerHubSpot » en haut de
  *    l'éditeur, cliquez sur « Exécuter », lisez le journal d'exécution.
  *
+ * Rendez-vous Calendly (onglet RDV CALENDLY, mis à jour toutes les 30 min) :
+ *  - Dans Calendly : Intégrations et applications → « API et webhooks » →
+ *    « Jetons d'accès personnels » → « Générer un nouveau jeton ».
+ *  - Dans Apps Script, « Propriétés du script », ajoutez :
+ *        Propriété : CALENDLY_TOKEN     Valeur : le jeton
+ *    Ne mettez jamais le jeton dans le code ni dans un message.
+ *  - Choisissez la fonction « installerSynchroCalendly » en haut de
+ *    l'éditeur, cliquez sur « Exécuter » (une seule fois) et autorisez.
+ *
+ * Nettoyage des essais : la fonction « supprimerTests » efface les lignes
+ * et le contact HubSpot créés par les tests (« TEST Claude »).
+ *
  * Si vous modifiez ce script plus tard : « Déployer » → « Gérer les
  * déploiements » → crayon → Version : « Nouvelle version » → « Déployer ».
  * L'URL reste la même.
@@ -71,6 +83,15 @@ var ONGLET_PAIEMENTS = 'PAIEMENTS';
 var COLONNES_PAIEMENTS = ['Date', 'Prénom', 'Email', 'Payé avec', 'Numéro utilisé', 'Capture', 'Source de la visite'];
 var DOSSIER_CAPTURES = 'Captures paiement Link in Bio';
 
+// Rendez-vous pris sur Calendly (onglet recréé à chaque mise à jour)
+var ONGLET_CALENDLY = 'RDV CALENDLY';
+var COLONNES_CALENDLY = ['Date du RDV', 'Type de RDV', 'Nom', 'Email', 'Téléphone ou lien', 'Statut',
+  'Formulaire LLC', 'Capture paiement', 'Source', 'Réponses aux questions', 'Tes notes', 'Réservé le'];
+var JOURS_HISTORIQUE = 60;   // RDV passés gardés dans l'onglet
+
+// Ce qui permet de reconnaître une ligne de test (fonction supprimerTests)
+var MARQUES_TEST = ['TEST Claude', 'test-claude', 'test.linkinbio@example.com', 'test@exemple.com'];
+
 // Champ envoyé par la page → propriété du contact dans HubSpot
 var HUBSPOT_CHAMPS = {
   prenom: 'firstname',
@@ -96,7 +117,7 @@ function doPost(e) {
   try {
     // Premier onglet qui n'est ni le sondage ni les paiements (son nom importe peu)
     var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (f) {
-      return f.getName() !== ONGLET_SONDAGE && f.getName() !== ONGLET_PAIEMENTS;
+      return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY].indexOf(f.getName()) === -1;
     })[0];
     titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
@@ -273,4 +294,156 @@ function texte(valeur) {
 function propre(valeur) {
   var t = texte(valeur);
   return /^[=+\-@]/.test(t) ? "'" + t : t;
+}
+
+// ───────────────────────── Rendez-vous Calendly ─────────────────────────
+
+// À lancer UNE fois à la main : met la synchro toutes les 30 minutes,
+// puis remplit l'onglet tout de suite.
+function installerSynchroCalendly() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'synchroCalendly') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('synchroCalendly').timeBased().everyMinutes(30).create();
+  console.log('Synchro Calendly programmée toutes les 30 minutes.');
+  synchroCalendly();
+}
+
+// Réécrit l'onglet RDV CALENDLY : RDV à venir en haut (le plus proche
+// d'abord), puis les RDV passés ou annulés des JOURS_HISTORIQUE derniers jours.
+function synchroCalendly() {
+  var jeton = PropertiesService.getScriptProperties().getProperty('CALENDLY_TOKEN');
+  if (!jeton) { console.log('Pas de jeton : ajoutez la propriété du script CALENDLY_TOKEN.'); return; }
+  var options = { headers: { Authorization: 'Bearer ' + jeton }, muteHttpExceptions: true };
+  function lire(url) {
+    var rep = UrlFetchApp.fetch(url, options);
+    if (rep.getResponseCode() !== 200) {
+      throw new Error('Calendly ' + rep.getResponseCode() + ' : ' + rep.getContentText().slice(0, 300));
+    }
+    return JSON.parse(rep.getContentText());
+  }
+
+  var moi = lire('https://api.calendly.com/users/me').resource.uri;
+  var depuis = new Date(Date.now() - JOURS_HISTORIQUE * 86400000).toISOString();
+  var url = 'https://api.calendly.com/scheduled_events?count=100&sort=start_time:asc' +
+    '&user=' + encodeURIComponent(moi) + '&min_start_time=' + encodeURIComponent(depuis);
+  var evenements = [];
+  while (url) {
+    var page = lire(url);
+    evenements = evenements.concat(page.collection);
+    url = page.pagination && page.pagination.next_page;
+  }
+
+  // Invités de chaque RDV, demandés en une fois
+  var reponses = evenements.length ? UrlFetchApp.fetchAll(evenements.map(function (ev) {
+    return { url: ev.uri + '/invitees?count=100', headers: options.headers, muteHttpExceptions: true };
+  })) : [];
+
+  var classeur = SpreadsheetApp.getActiveSpreadsheet();
+  var formulaires = parEmail(ongletFormulaire(classeur), 'Email', 'Éligible');
+  var paiements = parEmail(classeur.getSheetByName(ONGLET_PAIEMENTS), 'Email', 'Date');
+  var maintenant = new Date();
+  var lignes = [];
+
+  evenements.forEach(function (ev, i) {
+    if (reponses[i].getResponseCode() !== 200) return;
+    var debut = new Date(ev.start_time);
+    var formation = /formation/i.test(ev.name);
+    var type = formation ? 'Formation vidéo' : (/llc/i.test(ev.name) ? 'Appel LLC' : ev.name);
+    JSON.parse(reponses[i].getContentText()).collection.forEach(function (inv) {
+      var email = String(inv.email || '').toLowerCase();
+      var statut = (ev.status === 'canceled' || inv.status === 'canceled') ? 'Annulé'
+        : inv.no_show ? 'Absent' : (debut > maintenant ? 'À venir' : 'Passé');
+      var formulaire = formation ? '' : (email in formulaires
+        ? 'Éligible : ' + formulaires[email] : '⚠ Aucun formulaire');
+      var capture = !formation ? '' : (email in paiements ? 'Oui' : '⚠ Aucune capture');
+      var questions = (inv.questions_and_answers || []).map(function (q) {
+        return q.question + ' : ' + q.answer;
+      }).join(' | ');
+      var lieu = ev.location || {};
+      var suivi = inv.tracking || {};
+      lignes.push([debut, type, propre(inv.name), propre(email), propre(lieu.join_url || lieu.location),
+        statut, formulaire, capture, propre(suivi.utm_content || suivi.utm_source),
+        propre(questions), propre(ev.meeting_notes_plain), new Date(inv.created_at)]);
+    });
+  });
+
+  // À venir d'abord (plus proche en haut), puis le reste (plus récent en haut)
+  lignes.sort(function (a, b) {
+    var av = a[5] === 'À venir', bv = b[5] === 'À venir';
+    if (av !== bv) return av ? -1 : 1;
+    return av ? a[0] - b[0] : b[0] - a[0];
+  });
+
+  var feuille = classeur.getSheetByName(ONGLET_CALENDLY) || classeur.insertSheet(ONGLET_CALENDLY);
+  feuille.clear();
+  titres(feuille, COLONNES_CALENDLY);
+  if (lignes.length) {
+    feuille.getRange(2, 1, lignes.length, COLONNES_CALENDLY.length).setValues(lignes);
+    feuille.getRange(2, 1, lignes.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    feuille.getRange(2, 12, lignes.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    // En rouge clair : formation réservée sans capture, ou appel LLC sans formulaire
+    // (sauf RDV annulé : plus rien à vérifier)
+    lignes.forEach(function (l, i) {
+      if (l[5] !== 'Annulé' && (String(l[6]).indexOf('⚠') === 0 || String(l[7]).indexOf('⚠') === 0)) {
+        feuille.getRange(i + 2, 1, 1, COLONNES_CALENDLY.length).setBackground('#FDE2DD');
+      }
+    });
+  }
+  feuille.autoResizeColumns(1, 9);
+  console.log(lignes.length + ' rendez-vous écrits dans l\'onglet ' + ONGLET_CALENDLY + '.');
+}
+
+// Onglet du formulaire d'éligibilité : le premier qui n'est pas un onglet spécial
+function ongletFormulaire(classeur) {
+  return classeur.getSheets().filter(function (f) {
+    return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY].indexOf(f.getName()) === -1;
+  })[0];
+}
+
+// { email → valeur de la colonne voulue } (la dernière ligne gagne)
+function parEmail(feuille, colonneEmail, colonneValeur) {
+  var resultat = {};
+  if (!feuille || feuille.getLastRow() < 2) return resultat;
+  var valeurs = feuille.getDataRange().getDisplayValues();
+  var iEmail = valeurs[0].indexOf(colonneEmail), iValeur = valeurs[0].indexOf(colonneValeur);
+  if (iEmail === -1) return resultat;
+  for (var i = 1; i < valeurs.length; i++) {
+    var email = String(valeurs[i][iEmail]).trim().toLowerCase();
+    if (email) resultat[email] = iValeur === -1 ? 'Oui' : (valeurs[i][iValeur] || 'Oui');
+  }
+  return resultat;
+}
+
+// ───────────────────────── Nettoyage des tests ─────────────────────────
+
+// À lancer à la main : supprime les lignes de test de tous les onglets et
+// met le contact HubSpot de test à la corbeille (récupérable 90 jours).
+function supprimerTests() {
+  var total = 0;
+  SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (f) {
+    if (f.getName() === ONGLET_CALENDLY) return;   // recréé par la synchro
+    var valeurs = f.getDataRange().getDisplayValues();
+    for (var i = valeurs.length - 1; i >= 1; i--) {
+      var ligne = valeurs[i].join(' ');
+      if (MARQUES_TEST.some(function (m) { return ligne.indexOf(m) !== -1; })) {
+        f.deleteRow(i + 1);
+        total++;
+      }
+    }
+  });
+  console.log(total + ' ligne(s) de test supprimée(s) dans la feuille.');
+
+  var cle = PropertiesService.getScriptProperties().getProperty('HUBSPOT_TOKEN');
+  if (!cle) return;
+  var entetes = { Authorization: 'Bearer ' + cle };
+  MARQUES_TEST.filter(function (m) { return m.indexOf('@') !== -1; }).forEach(function (email) {
+    var base = 'https://api.hubapi.com/crm/v3/objects/contacts/';
+    var rep = UrlFetchApp.fetch(base + encodeURIComponent(email) + '?idProperty=email',
+      { headers: entetes, muteHttpExceptions: true });
+    if (rep.getResponseCode() !== 200) return;
+    var id = JSON.parse(rep.getContentText()).id;
+    var sup = UrlFetchApp.fetch(base + id, { method: 'delete', headers: entetes, muteHttpExceptions: true });
+    console.log('HubSpot ' + email + ' : ' + (sup.getResponseCode() === 204 ? 'supprimé' : 'erreur ' + sup.getResponseCode()));
+  });
 }
