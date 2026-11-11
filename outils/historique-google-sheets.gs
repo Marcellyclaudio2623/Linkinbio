@@ -98,7 +98,7 @@ var IA_NOM = /\bIA\b/;   // reconnaît l'événement Calendly « Appel IA & auto
 // plusieurs choix possibles) et un statut par offre. Propriétés à créer une
 // fois dans HubSpot : lib_offre, lib_statut_llc, lib_statut_ia,
 // lib_statut_formation, lib_eligible_ia (voir outils/hubspot-raccourcis.md).
-var HUBSPOT_STATUTS = { 'À vérifier': 'a_verifier', 'Validé': 'valide', 'Refusé': 'refuse', 'Non éligible': 'non_eligible' };
+var HUBSPOT_STATUTS = { 'À vérifier': 'a_verifier', 'Validé': 'valide', 'Refusé': 'refuse', 'Non éligible': 'non_eligible', 'RDV pris': 'valide' };
 var LIENS_GRATUITS = '- Chaîne YouTube : https://www.youtube.com/@claudiocodemg\n' +
   '- Chaîne WhatsApp : https://whatsapp.com/channel/0029VbE1RgAFSAswvhjujX30';
 
@@ -123,7 +123,13 @@ var COLONNES_CALENDLY = ['Date du RDV', 'Type de RDV', 'Nom', 'Email', 'Téléph
 var JOURS_HISTORIQUE = 60;   // RDV passés gardés dans l'onglet
 
 // Ce qui permet de reconnaître une ligne de test (fonction supprimerTests)
-var MARQUES_TEST = ['TEST Claude', 'test-claude', 'test.linkinbio@example.com', 'test@exemple.com'];
+var MARQUES_TEST = ['TEST Claude', 'test-claude', 'test.linkinbio@example.com', 'test@exemple.com', 'claudiomarcellyb+test@gmail.com'];
+
+// Onglet CONTACTS : une ligne par personne (toutes offres confondues),
+// reconstruit par le balayage toutes les heures. Ne pas modifier à la main.
+var ONGLET_CONTACTS = 'CONTACTS';
+var COLONNES_CONTACTS = ['Email', 'Prénom', 'Offres', 'LLC · éligible', 'LLC · statut', 'IA · éligible', 'IA · statut',
+  'Formation · paiement', 'Prochain RDV', 'Dernier RDV', 'Source', 'Dernière activité'];
 
 // Champ envoyé par la page → propriété du contact dans HubSpot
 var HUBSPOT_CHAMPS = {
@@ -151,7 +157,7 @@ function doPost(e) {
   try {
     // Premier onglet qui n'est ni le sondage ni les paiements (son nom importe peu)
     var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (f) {
-      return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA].indexOf(f.getName()) === -1;
+      return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA, ONGLET_CONTACTS].indexOf(f.getName()) === -1;
     })[0];
     titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
@@ -475,9 +481,10 @@ function propre(valeur) {
 // (paiements de la formation ET demandes d'appel LLC).
 function installerAutomatismes() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (['synchroCalendly', 'quandModifie'].indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
+    if (['synchroCalendly', 'quandModifie', 'balayage'].indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('synchroCalendly').timeBased().everyMinutes(30).create();
+  ScriptApp.newTrigger('balayage').timeBased().everyHours(1).create();
   ScriptApp.newTrigger('quandModifie').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
   var paiements = classeur.getSheetByName(ONGLET_PAIEMENTS);
@@ -499,8 +506,9 @@ function installerAutomatismes() {
   }
   var ia = classeur.getSheetByName(ONGLET_IA);
   if (ia) { titres(ia, COLONNES_IA); listeStatuts(ia, 14, STATUTS_FORMULAIRE); }
-  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation (formation, appel LLC, appel IA).');
+  console.log('Automatismes installés : synchro Calendly (30 min), balayage des contacts (1 h) et liens de réservation (formation, appel LLC, appel IA).');
   synchroCalendly();
+  balayage();
 }
 // Ancien nom, gardé pour ne rien casser
 function installerSynchroCalendly() { installerAutomatismes(); }
@@ -744,7 +752,7 @@ function synchroCalendly() {
 // Onglet du formulaire d'éligibilité : le premier qui n'est pas un onglet spécial
 function ongletFormulaire(classeur) {
   return classeur.getSheets().filter(function (f) {
-    return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA].indexOf(f.getName()) === -1;
+    return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA, ONGLET_CONTACTS].indexOf(f.getName()) === -1;
   })[0];
 }
 
@@ -769,7 +777,7 @@ function parEmail(feuille, colonneEmail, colonneValeur) {
 function supprimerTests() {
   var total = 0;
   SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (f) {
-    if (f.getName() === ONGLET_CALENDLY) return;   // recréé par la synchro
+    if (f.getName() === ONGLET_CALENDLY || f.getName() === ONGLET_CONTACTS) return;   // recréés tout seuls
     var valeurs = f.getDataRange().getDisplayValues();
     for (var i = valeurs.length - 1; i >= 1; i--) {
       var ligne = valeurs[i].join(' ');
@@ -793,4 +801,132 @@ function supprimerTests() {
     var sup = UrlFetchApp.fetch(base + id, { method: 'delete', headers: entetes, muteHttpExceptions: true });
     console.log('HubSpot ' + email + ' : ' + (sup.getResponseCode() === 204 ? 'supprimé' : 'erreur ' + sup.getResponseCode()));
   });
+}
+
+// ───────────────────────── Balayage des contacts ─────────────────────────
+
+// Toutes les heures (et à la main si besoin) : regroupe chaque personne de
+// tous les onglets (formulaire LLC, APPELS IA, PAIEMENTS, RDV CALENDLY) dans
+// l'onglet CONTACTS, puis recopie offres, éligibilité et statuts dans HubSpot.
+// La feuille fait foi : une valeur changée à la main dans HubSpot sur ces
+// propriétés est remplacée au balayage suivant.
+function balayage() {
+  var classeur = SpreadsheetApp.getActiveSpreadsheet();
+  var gens = {};
+
+  function personne(email, prenom) {
+    email = String(email || '').trim().toLowerCase();
+    if (email.indexOf('@') === -1) return null;
+    var marque = (email + ' ' + (prenom || ''));
+    if (MARQUES_TEST.some(function (m) { return marque.indexOf(m) !== -1; })) return null;
+    if (!gens[email]) gens[email] = { email: email, prenom: '', offres: {}, llcElig: '', llcStatut: '', iaElig: '',
+      iaStatut: '', formation: '', prochain: null, dernier: null, source: '', activite: null };
+    if (prenom) gens[email].prenom = String(prenom);
+    return gens[email];
+  }
+  function lignes(feuille) {
+    if (!feuille || feuille.getLastRow() < 2) return [];
+    var v = feuille.getDataRange().getValues();
+    var titres = v[0].map(String);
+    return v.slice(1).map(function (r) { var o = {}; titres.forEach(function (k, i) { o[k] = r[i]; }); return o; });
+  }
+  function activite(p, date) {
+    if (date instanceof Date && (!p.activite || date > p.activite)) p.activite = date;
+  }
+
+  // Ordre des lignes = ordre chronologique : la plus récente l'emporte
+  lignes(ongletFormulaire(classeur)).forEach(function (r) {
+    var p = personne(r['Email'], r['Prénom']); if (!p) return;
+    p.offres.LLC = true;
+    p.llcElig = r['Éligible'] || p.llcElig;
+    if (r['Statut']) p.llcStatut = r['Statut'];
+    if (r['Source de la visite']) p.source = r['Source de la visite'];
+    activite(p, r['Date']);
+  });
+  lignes(classeur.getSheetByName(ONGLET_IA)).forEach(function (r) {
+    var p = personne(r['Email'], r['Prénom']); if (!p) return;
+    p.offres.IA = true;
+    p.iaElig = r['Éligible'] || p.iaElig;
+    if (r['Statut']) p.iaStatut = r['Statut'];
+    if (r['Source de la visite']) p.source = r['Source de la visite'];
+    activite(p, r['Date']);
+  });
+  lignes(classeur.getSheetByName(ONGLET_PAIEMENTS)).forEach(function (r) {
+    var p = personne(r['Email'], r['Prénom']); if (!p) return;
+    p.offres.Formation = true;
+    p.formation = r['Statut'] || 'À vérifier';
+    if (r['Source de la visite']) p.source = r['Source de la visite'];
+    activite(p, r['Date']);
+  });
+  lignes(classeur.getSheetByName(ONGLET_CALENDLY)).forEach(function (r) {
+    var p = personne(r['Email'], ''); if (!p) return;
+    var type = String(r['Type de RDV']), date = r['Date du RDV'], statut = String(r['Statut']);
+    var offre = /LLC/.test(type) ? 'LLC' : (/IA/.test(type) ? 'IA' : (/Formation/i.test(type) ? 'Formation' : ''));
+    if (offre) p.offres[offre] = true;
+    if (r['Nom']) p.nomCalendly = String(r['Nom']);   // affiché seulement, jamais envoyé comme prénom
+    if (statut === 'Annulé') return;
+    // RDV pris sans statut dans la feuille (ancien lien public) : « RDV pris »
+    if (offre === 'LLC' && !p.llcStatut) p.llcStatut = 'RDV pris';
+    if (offre === 'IA' && !p.iaStatut) p.iaStatut = 'RDV pris';
+    if (!(date instanceof Date)) return;
+    if (statut === 'À venir') { if (!p.prochain || date < p.prochain) p.prochain = date; }
+    else if (!p.dernier || date > p.dernier) p.dernier = date;
+  });
+
+  // Onglet CONTACTS (plus récente activité en haut)
+  var liste = Object.keys(gens).map(function (k) { return gens[k]; });
+  liste.sort(function (a, b) { return (b.activite || 0) - (a.activite || 0); });
+  var lignesContacts = liste.map(function (p) {
+    return [p.email, propre(p.prenom || p.nomCalendly || ''), Object.keys(p.offres).join(' · '), p.llcElig, p.llcStatut, p.iaElig, p.iaStatut,
+      p.formation, p.prochain || '', p.dernier || '', propre(p.source), p.activite || ''];
+  });
+  var feuille = classeur.getSheetByName(ONGLET_CONTACTS) || classeur.insertSheet(ONGLET_CONTACTS, 0);
+  feuille.clear();
+  titres(feuille, COLONNES_CONTACTS);
+  if (lignesContacts.length) {
+    feuille.getRange(2, 1, lignesContacts.length, COLONNES_CONTACTS.length).setValues(lignesContacts);
+    [9, 10, 12].forEach(function (c) { feuille.getRange(2, c, lignesContacts.length, 1).setNumberFormat('dd/MM/yyyy HH:mm'); });
+    // Couleurs des statuts : vert validé, jaune à vérifier, rouge refusé / non éligible
+    var couleurs = { 'Validé': '#E3F4E1', 'RDV pris': '#E3F4E1', 'À vérifier': '#FFF4CC', 'Refusé': '#FDE2DD', 'Non éligible': '#FDE2DD',
+      'Oui': '#E3F4E1', 'Non': '#FDE2DD' };
+    var fonds = lignesContacts.map(function (l) {
+      return l.map(function (v, i) { return (i >= 3 && i <= 7 && couleurs[v]) || null; });
+    });
+    feuille.getRange(2, 1, fonds.length, COLONNES_CONTACTS.length).setBackgrounds(fonds);
+  }
+  feuille.autoResizeColumns(1, 8);
+
+  console.log(lignesContacts.length + ' personnes dans l\'onglet CONTACTS. ' + synchroHubSpot(liste));
+}
+
+// Recopie offres, éligibilité et statuts de chaque personne dans HubSpot
+// (crée le contact s'il manque). Envoi par paquets de 100.
+function synchroHubSpot(liste) {
+  var cle = PropertiesService.getScriptProperties().getProperty('HUBSPOT_TOKEN');
+  if (!cle) return 'HubSpot : clé non réglée.';
+  var CODES = { LLC: 'llc', IA: 'ia', Formation: 'formation' };
+  var oui = function (v) { return v === 'Oui' ? 'true' : (v === 'Non' ? 'false' : ''); };
+  var entrees = liste.map(function (p) {
+    var props = {
+      lib_offre: Object.keys(p.offres).map(function (o) { return CODES[o]; }).join(';'),
+      lib_statut_llc: HUBSPOT_STATUTS[p.llcStatut] || '',
+      lib_statut_ia: HUBSPOT_STATUTS[p.iaStatut] || '',
+      lib_statut_formation: HUBSPOT_STATUTS[p.formation] || '',
+      lib_eligible: oui(p.llcElig),
+      lib_eligible_ia: oui(p.iaElig),
+      firstname: texte(p.prenom)
+    };
+    Object.keys(props).forEach(function (k) { if (!props[k]) delete props[k]; });
+    return { idProperty: 'email', id: p.email, properties: props };
+  });
+  var ok = 0, erreurs = [];
+  for (var i = 0; i < entrees.length; i += 100) {
+    var rep = UrlFetchApp.fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/upsert', {
+      method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + cle },
+      payload: JSON.stringify({ inputs: entrees.slice(i, i + 100) }), muteHttpExceptions: true
+    });
+    if (rep.getResponseCode() < 300) ok += Math.min(100, entrees.length - i);
+    else erreurs.push(rep.getResponseCode() + ' ' + rep.getContentText().slice(0, 200));
+  }
+  return 'HubSpot : ' + ok + ' contact(s) à jour' + (erreurs.length ? ', erreurs : ' + erreurs.join(' | ') : '.');
 }

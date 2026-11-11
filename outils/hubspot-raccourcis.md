@@ -15,6 +15,14 @@ HubSpot (Paramètres → Propriétés → Contact) avec exactement ces noms inte
 
 « Éligible à l'appel » (`lib_eligible`) reste l'éligibilité de l'appel LLC.
 
+Le **balayage** (fonction `balayage` du script, toutes les heures) relit tous
+les onglets de la feuille, reconstruit l'onglet **CONTACTS** (une ligne par
+personne : offres, éligibilité et statut par offre, prochain RDV) et recopie
+ces valeurs dans HubSpot pour tous les contacts, anciens compris. La feuille
+fait foi : une valeur modifiée à la main dans HubSpot sur ces propriétés est
+remplacée au balayage suivant. « RDV pris » (rendez-vous réservé sans
+validation, ancien lien public) devient « Validé » dans HubSpot.
+
 Pour voir les contacts par offre : Contacts → filtre « Offre » → LLC (ou IA,
 Formation), puis ajoutez les colonnes Offre, Statut et Éligible et
 enregistrez la vue (« LLC à valider », « IA à valider »…).
