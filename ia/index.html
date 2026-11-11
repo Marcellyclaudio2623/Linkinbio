@@ -142,8 +142,7 @@
     .mention { font: 500 0.8125rem/1.45 var(--mono); color: var(--gris); text-align: center; }
 
     /* Calendrier intégré (chargé seulement si on le demande : page rapide) */
-    .agenda { padding: var(--bord); }
-    .agenda iframe { display: block; width: 100%; height: 720px; border: 0; border-radius: calc(var(--rayon) - var(--bord)); background: #fff; }
+    .agenda iframe { display: block; width: 100%; height: 700px; border: var(--bord) solid var(--encre); border-radius: 14px; background: #fff; }
 
     /* ===== 4. CE QU'ON PEUT AUTOMATISER ===== */
     .grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 14px; list-style: none; }
@@ -196,6 +195,38 @@
     .champ input:focus, .champ select:focus, .champ textarea:focus { outline: 3px dashed var(--rouge); outline-offset: 2px; }
     .case { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; font-weight: 600; cursor: pointer; }
     .case input { width: 26px; height: 26px; accent-color: var(--rouge-fort); margin-top: 1px; }
+
+    .question { border: 0; display: grid; gap: 10px; }
+    .question legend { font-weight: 800; font-size: 1rem; line-height: 1.35; margin-bottom: 10px; }
+    .question__num {
+      display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 6px;
+      background: var(--encre); color: #fff; font: 600 0.75rem/1.5 var(--mono); vertical-align: 2px;
+    }
+    .choix { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choix label { position: relative; cursor: pointer; }
+    .choix input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .choix span {
+      display: inline-flex; align-items: center; min-height: 46px; padding: 10px 14px;
+      border: var(--bord) solid var(--encre); border-radius: 999px; background: #fff;
+      font-weight: 700; font-size: 0.9375rem; line-height: 1.25;
+      transition: transform 140ms var(--doux), background 140ms;
+    }
+    .choix input:checked + span { background: var(--encre); color: #fff; transform: rotate(-1.5deg); }
+    .choix input:focus-visible + span { outline: 3px dashed var(--rouge); outline-offset: 3px; }
+    .bouton--clair { background: #fff; color: var(--encre); }
+    .bouton--clair:focus-visible { outline-color: var(--encre); }
+    .resultat { display: grid; gap: 14px; }
+    .resultat > div { display: grid; gap: 14px; }
+    .resultat:focus { outline: none; }
+    .resultat__titre { font-weight: 800; font-size: 1.375rem; line-height: 1.2; letter-spacing: -0.01em; }
+    .statut {
+      justify-self: start; display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px;
+      border: var(--bord) solid var(--encre); border-radius: 999px; font-weight: 800; font-size: 0.875rem;
+    }
+    .statut--ok { background: var(--vert); }
+    .statut--non { background: #FBEAE6; }
+    .raisons { display: grid; gap: 6px; padding-left: 1.2em; font-weight: 600; }
+    .formulaire__erreur { color: var(--rouge-fort); font-weight: 700; }
 
     /* ===== 9. PIED DE PAGE ===== */
     .pied { display: grid; gap: 14px; justify-items: center; text-align: center; padding-top: 4px; }
@@ -659,14 +690,11 @@
     <section class="accroche apparait" style="--d: 1" aria-labelledby="titre">
       <h1 id="titre">Arrête de tout faire <em>à la main.</em></h1>
       <p>Commandes, factures, relances, réponses aux clients&nbsp;: on automatise ce qui te bloque.</p>
-      <!-- Lien de réservation Calendly : modifiez CALENDLY dans le script en bas de page -->
-      <a class="bouton" id="reserver" href="https://calendly.com/claudiomarcellyb/appel-ia-automatisation-20-min?utm_source=linkinbio-ia" target="_blank" rel="noopener noreferrer">
+      <!-- Les dates ne s'affichent qu'après le test d'éligibilité (plus bas) -->
+      <a class="bouton" id="vers-test" href="#eligibilite">
         <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver mon appel gratuit (20&nbsp;min)
       </a>
-      <button class="lien-texte" type="button" id="voir-agenda" aria-expanded="false" aria-controls="agenda">
-        Voir les créneaux ici, sans quitter la page
-      </button>
-      <div class="carte agenda" id="agenda" hidden></div>
+      <p class="mention">// 4 questions rapides d'abord, pour vérifier que l'appel peut t'aider.</p>
     </section>
 
     <!-- 4. CE QU'ON PEUT AUTOMATISER -->
@@ -711,21 +739,54 @@
       </div>
     </section>
 
-    <!-- 7. MINI-FORMULAIRE (facultatif) : les réponses sont jointes à la réservation
-         Calendly (1re question de l'événement). Rien n'est envoyé ailleurs. -->
-    <section class="apparait" style="--d: 5" aria-labelledby="titre-form">
-      <h2 class="label" id="titre-form">// Prépare ton appel (facultatif)</h2>
-      <form class="carte formulaire" id="preparer" novalidate>
+    <!-- 7. ÉLIGIBILITÉ + PRÉPARATION DE L'APPEL
+         Critères : une réponse avec data-bloquant="raison" rend la personne
+         non éligible (raison affichée). Ajoutez ou retirez l'attribut pour
+         changer les critères. Si tout est bon, les dates Calendly s'affichent,
+         avec les réponses jointes à la réservation (1re question de l'événement). -->
+    <section class="apparait" style="--d: 5" aria-labelledby="titre-form" id="eligibilite">
+      <h2 class="label" id="titre-form">// Vérifie ton éligibilité (1&nbsp;min)</h2>
+      <form class="carte formulaire" id="preparer">
+        <fieldset class="question">
+          <legend><span class="question__num">01</span>Où en est ton activité&nbsp;?</legend>
+          <div class="choix">
+            <label><input type="radio" name="activite" value="Entreprise / PME" required /><span>J'ai une entreprise ou une PME</span></label>
+            <label><input type="radio" name="activite" value="Indépendant(e) / freelance" /><span>Je suis indépendant(e) / freelance</span></label>
+            <label><input type="radio" name="activite" value="Petite activité" /><span>J'ai une petite activité (boutique, vente en ligne…)</span></label>
+            <label><input type="radio" name="activite" value="Pas encore d'activité" data-bloquant="L'appel est fait pour les personnes qui ont déjà une activité. Commence d'abord par lancer la tienne." /><span>Je n'ai pas encore d'activité</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="question">
+          <legend><span class="question__num">02</span>As-tu déjà des clients&nbsp;?</legend>
+          <div class="choix">
+            <label><input type="radio" name="clients" value="Oui, régulièrement" required /><span>Oui, régulièrement</span></label>
+            <label><input type="radio" name="clients" value="Quelques-uns" /><span>Quelques-uns</span></label>
+            <label><input type="radio" name="clients" value="Pas encore" data-bloquant="Il faut déjà des clients : sans commandes ni factures, il n'y a encore rien à automatiser." /><span>Pas encore</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="question">
+          <legend><span class="question__num">03</span>Combien de temps passes-tu chaque semaine sur des tâches répétitives&nbsp;?</legend>
+          <div class="choix">
+            <label><input type="radio" name="temps" value="Plus de 10 h" required /><span>Plus de 10&nbsp;h</span></label>
+            <label><input type="radio" name="temps" value="5 à 10 h" /><span>5 à 10&nbsp;h</span></label>
+            <label><input type="radio" name="temps" value="2 à 5 h" /><span>2 à 5&nbsp;h</span></label>
+            <label><input type="radio" name="temps" value="Moins de 2 h" data-bloquant="Avec moins de 2 h par semaine, l'automatisation ne te ferait pas gagner grand-chose pour l'instant." /><span>Moins de 2&nbsp;h</span></label>
+          </div>
+        </fieldset>
         <div class="champ">
-          <label for="prenom">Ton prénom</label>
-          <input type="text" id="prenom" name="prenom" autocomplete="given-name" />
+          <label for="tache"><span class="question__num">04</span>Quelle tâche te prend le plus de temps&nbsp;?</label>
+          <textarea id="tache" name="tache" maxlength="500" required placeholder="Ex. : je recopie les commandes WhatsApp dans Excel tous les soirs"></textarea>
         </div>
         <div class="champ">
-          <label for="entreprise">Nom de ton entreprise ou de ton activité</label>
+          <label for="prenom">Ton prénom</label>
+          <input type="text" id="prenom" name="prenom" autocomplete="given-name" required />
+        </div>
+        <div class="champ">
+          <label for="entreprise">Nom de ton entreprise ou de ton activité <span class="facultatif">(facultatif)</span></label>
           <input type="text" id="entreprise" name="entreprise" autocomplete="organization" />
         </div>
         <div class="champ">
-          <label for="secteur">Ton secteur</label>
+          <label for="secteur">Ton secteur <span class="facultatif">(facultatif)</span></label>
           <select id="secteur" name="secteur">
             <option value="">Choisis…</option>
             <option>Commerce / boutique</option>
@@ -740,19 +801,39 @@
             <option>Autre</option>
           </select>
         </div>
-        <div class="champ">
-          <label for="tache">Quelle tâche te prend le plus de temps&nbsp;?</label>
-          <textarea id="tache" name="tache" maxlength="500" placeholder="Ex. : je recopie les commandes WhatsApp dans Excel tous les soirs"></textarea>
-        </div>
         <label class="case">
           <input type="checkbox" id="recontact" name="recontact" />
           <span>J'accepte d'être recontacté(e) pour préparer l'appel.</span>
         </label>
         <button class="bouton" type="submit">
-          <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver avec ces infos
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Voir si je suis éligible
         </button>
         <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> Tes informations servent uniquement à préparer l'appel.</p>
       </form>
+
+      <!-- Résultat : éligible (dates) ou pas encore -->
+      <div class="carte resultat" id="resultat" hidden tabindex="-1" aria-live="polite">
+        <div id="resultat-ok" hidden>
+          <p class="statut statut--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Éligible</p>
+          <h3 class="resultat__titre">C'est tout bon, <span data-champ="prenom"></span>&nbsp;! <em>Choisis ton créneau.</em></h3>
+          <p>Tes réponses seront jointes à ta réservation.</p>
+          <div class="agenda" id="agenda"></div>
+          <a class="bouton" id="reserver" href="#" target="_blank" rel="noopener noreferrer">
+            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Ouvrir l'agenda dans une nouvelle page
+          </a>
+        </div>
+        <div id="resultat-non" hidden>
+          <p class="statut statut--non"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Pas encore éligible</p>
+          <h3 class="resultat__titre">Pas tout de suite, <span data-champ="prenom"></span>.</h3>
+          <p>Ce qui bloque pour l'instant&nbsp;:</p>
+          <ul class="raisons" id="raisons"></ul>
+          <p>En attendant, avance avec mes vidéos gratuites&nbsp;:</p>
+          <a class="bouton bouton--clair" href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-youtube" aria-hidden="true"></i> Voir mes vidéos YouTube
+          </a>
+        </div>
+        <button class="lien-texte" type="button" id="modifier">Modifier mes réponses</button>
+      </div>
     </section>
 
     <!-- 8. WHATSAPP -->
@@ -781,23 +862,32 @@
       var CALENDLY = 'https://calendly.com/claudiomarcellyb/appel-ia-automatisation-20-min';
 
       var form = document.getElementById('preparer');
+      var resultat = document.getElementById('resultat');
+      var ok = document.getElementById('resultat-ok');
+      var non = document.getElementById('resultat-non');
+      var agenda = document.getElementById('agenda');
       var reserver = document.getElementById('reserver');
 
-      // Réponses du mini-formulaire → texte de la 1re question Calendly (a1)
+      function valeur(nom) { return form.elements[nom] ? String(form.elements[nom].value || '').trim() : ''; }
+
+      // Réponses → texte de la 1re question Calendly (a1)
       function resume() {
-        var e = form.elements, lignes = [];
-        if (e.entreprise.value.trim()) lignes.push('Activité : ' + e.entreprise.value.trim());
-        if (e.secteur.value) lignes.push('Secteur : ' + e.secteur.value);
-        if (e.tache.value.trim()) lignes.push('Tâche qui prend le plus de temps : ' + e.tache.value.trim());
-        if (lignes.length || e.recontact.checked) lignes.push("Accepte d'être recontacté(e) : " + (e.recontact.checked ? 'oui' : 'non'));
+        var lignes = [
+          'Activité : ' + valeur('activite'),
+          'Clients : ' + valeur('clients'),
+          'Temps sur tâches répétitives : ' + valeur('temps'),
+          'Tâche qui prend le plus de temps : ' + valeur('tache')
+        ];
+        if (valeur('entreprise')) lignes.push('Entreprise : ' + valeur('entreprise'));
+        if (valeur('secteur')) lignes.push('Secteur : ' + valeur('secteur'));
+        lignes.push("Accepte d'être recontacté(e) : " + (form.elements.recontact.checked ? 'oui' : 'non'));
         return lignes.join(' | ');
       }
       function lien(integre) {
         var url = new URL(CALENDLY);
-        var prenom = form.elements.prenom.value.trim();
-        if (prenom) { url.searchParams.set('name', prenom); url.searchParams.set('first_name', prenom); }
-        var a1 = resume();
-        if (a1) url.searchParams.set('a1', a1);
+        url.searchParams.set('name', valeur('prenom'));
+        url.searchParams.set('first_name', valeur('prenom'));
+        url.searchParams.set('a1', resume());
         url.searchParams.set('utm_source', 'linkinbio-ia');
         if (integre) {
           url.searchParams.set('embed_domain', location.hostname || 'localhost');
@@ -807,31 +897,35 @@
         return url.toString();
       }
 
-      // Le bouton principal emporte aussi les réponses si le formulaire est rempli
-      form.addEventListener('input', function () { reserver.href = lien(false); });
-      form.addEventListener('change', function () { reserver.href = lien(false); });
-
       form.addEventListener('submit', function (ev) {
         ev.preventDefault();
-        window.open(lien(false), '_blank', 'noopener');
-      });
-
-      // Calendrier intégré : chargé seulement au clic (la page reste légère)
-      var voir = document.getElementById('voir-agenda');
-      var agenda = document.getElementById('agenda');
-      voir.addEventListener('click', function () {
-        var ouvert = agenda.hidden;
-        if (ouvert && !agenda.firstChild) {
+        var raisons = Array.prototype.map.call(form.querySelectorAll('[data-bloquant]:checked'), function (c) { return c.dataset.bloquant; });
+        resultat.querySelectorAll('[data-champ="prenom"]').forEach(function (n) { n.textContent = valeur('prenom'); });
+        if (raisons.length) {
+          var liste = document.getElementById('raisons');
+          liste.replaceChildren();
+          raisons.forEach(function (r) { var li = document.createElement('li'); li.textContent = r; liste.appendChild(li); });
+          ok.hidden = true; non.hidden = false;
+        } else {
+          // Dates affichées seulement maintenant : agenda intégré + lien de secours
           var cadre = document.createElement('iframe');
           cadre.src = lien(true);
-          cadre.title = 'Choisir un créneau pour l\'appel IA & automatisation';
-          cadre.loading = 'lazy';
-          agenda.appendChild(cadre);
+          cadre.title = "Choisir un créneau pour l'appel IA & automatisation";
+          agenda.replaceChildren(cadre);
+          reserver.href = lien(false);
+          ok.hidden = false; non.hidden = true;
         }
-        agenda.hidden = !ouvert;
-        voir.setAttribute('aria-expanded', String(ouvert));
-        voir.textContent = ouvert ? 'Masquer les créneaux' : 'Voir les créneaux ici, sans quitter la page';
-        if (ouvert) agenda.scrollIntoView({ block: 'start' });
+        form.hidden = true;
+        resultat.hidden = false;
+        resultat.scrollIntoView({ block: 'start' });
+        resultat.focus({ preventScroll: true });
+      });
+
+      document.getElementById('modifier').addEventListener('click', function () {
+        resultat.hidden = true;
+        agenda.replaceChildren();
+        form.hidden = false;
+        form.scrollIntoView({ block: 'start' });
       });
 
       // Personnage : couleur de polo au hasard à chaque visite (comme la page principale)
