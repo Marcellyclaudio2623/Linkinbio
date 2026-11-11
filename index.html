@@ -329,6 +329,13 @@
     .lien--linkedin  .lien__icone { background: var(--bleu);       color: var(--encre); }
     .lien--email     .lien__icone { background: var(--rouge-fort); color: #fff; }
 
+    /* WhatsApp direct (tout en haut) : carte verte, numéro dédié bien visible */
+    .lien--direct::before { background: #25D366; }
+    .lien--direct .lien__icone { background: var(--carte); color: var(--encre); }
+    .lien--direct .lien__titre { font-size: 1.125rem; }
+    .lien--direct .lien__info { color: var(--encre); font-weight: 600; opacity: 1; }
+    .lien--direct .lien__fleche { color: var(--encre); }
+
     .lien__texte {
       flex: 1;
       min-width: 0;
@@ -1398,6 +1405,24 @@
         <li class="theme">Marketing Digital</li>
       </ul>
     </header>
+
+    <!-- =====================================================
+         WHATSAPP DIRECT : ouvre une conversation avec le numéro dédié
+         (+1 603 799 0138 → dans le lien wa.me, sans + ni espaces).
+         À ne pas confondre avec la chaîne WhatsApp (section « Mes réseaux »).
+         ===================================================== -->
+    <nav class="liens" aria-label="Me contacter directement">
+      <a class="lien lien--direct reveal" style="--d: 2" data-reaction="parle salue parle"
+         href="https://wa.me/16037990138?text=Bonjour%20Claudio%2C%20je%20viens%20de%20ta%20page%20lien%20en%20bio."
+         target="_blank" rel="noopener noreferrer">
+        <span class="lien__icone" aria-hidden="true"><i class="fa-brands fa-whatsapp"></i></span>
+        <span class="lien__texte">
+          <span class="lien__titre">Écris-moi sur WhatsApp</span>
+          <span class="lien__info">+1&nbsp;603&nbsp;799&nbsp;0138 · je te réponds directement</span>
+        </span>
+        <i class="fa-solid fa-arrow-right lien__fleche" aria-hidden="true"></i>
+      </a>
+    </nav>
 
     <!-- =====================================================
          RÉSERVER UN APPEL
