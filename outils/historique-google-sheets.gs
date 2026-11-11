@@ -526,13 +526,15 @@ function synchroCalendly() {
   evenements.forEach(function (ev, i) {
     if (reponses[i].getResponseCode() !== 200) return;
     var debut = new Date(ev.start_time);
-    var formation = /formation/i.test(ev.name);
-    var type = formation ? 'Formation vidéo' : (/llc/i.test(ev.name) ? 'Appel LLC' : ev.name);
+    var formation = FORMATION_NOM.test(ev.name);
+    var llc = LLC_NOM.test(ev.name);
+    var type = formation ? 'Formation vidéo' : (llc ? 'Appel LLC' : (/\bIA\b/.test(ev.name) ? 'Appel IA' : ev.name));
     JSON.parse(reponses[i].getContentText()).collection.forEach(function (inv) {
       var email = String(inv.email || '').toLowerCase();
       var statut = (ev.status === 'canceled' || inv.status === 'canceled') ? 'Annulé'
         : inv.no_show ? 'Absent' : (debut > maintenant ? 'À venir' : 'Passé');
-      var formulaire = formation ? '' : (email in formulaires
+      // Seul l'appel LLC passe par le formulaire d'éligibilité de la page principale
+      var formulaire = !llc ? '' : (email in formulaires
         ? 'Éligible : ' + formulaires[email] : '⚠ Aucun formulaire');
       var statutPaiement = paiements[email] || 'À vérifier';
       var capture = !formation ? '' : (!(email in paiements) ? '⚠ Aucune capture'
