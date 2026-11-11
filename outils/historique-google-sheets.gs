@@ -86,6 +86,11 @@ var COLONNES = [
 ];
 var STATUTS_FORMULAIRE = ['À vérifier', 'Validé', 'Refusé', 'Non éligible'];
 var LLC_NOM = /llc/i;   // reconnaît l'événement Calendly de l'appel découverte
+// Appel LLC : seules ces sources de revenus sont éligibles. Le script l'applique
+// aux nouvelles demandes (même venant d'une ancienne version de la page) et,
+// au balayage, aux anciennes lignes encore « éligibles » sans décision.
+var LLC_SOURCES_ELIGIBLES = ['Indépendant(e) / freelance', "Chef d'entreprise"];
+var LLC_RAISON = "Les appels LLC sont réservés aux chefs d'entreprise et aux freelances.";
 
 // Appel « IA & automatisation » (page ia/) : demandes à valider à la main
 var ONGLET_IA = 'APPELS IA';
@@ -151,6 +156,10 @@ function doPost(e) {
   if (champs.type === 'appel_ia') return enregistrerAppelIA(champs);
   // Envoi vide (script lancé à la main, robot…) : on n'enregistre rien
   if (!champs.email && !champs.prenom) return ContentService.createTextOutput('ignoré');
+  if (champs.eligible === 'Oui' && LLC_SOURCES_ELIGIBLES.indexOf(texte(champs.revenus)) === -1) {
+    champs.eligible = 'Non';
+    champs.raisons = LLC_RAISON;
+  }
 
   var verrou = LockService.getScriptLock();
   verrou.waitLock(10000);   // deux envois simultanés ne s'écrasent pas
@@ -834,6 +843,8 @@ function balayage() {
     if (date instanceof Date && (!p.activite || date > p.activite)) p.activite = date;
   }
 
+  appliquerRegleLLC(classeur);
+
   // Ordre des lignes = ordre chronologique : la plus récente l'emporte
   lignes(ongletFormulaire(classeur)).forEach(function (r) {
     var p = personne(r['Email'], r['Prénom']); if (!p) return;
@@ -929,4 +940,31 @@ function synchroHubSpot(liste) {
     else erreurs.push(rep.getResponseCode() + ' ' + rep.getContentText().slice(0, 200));
   }
   return 'HubSpot : ' + ok + ' contact(s) à jour' + (erreurs.length ? ', erreurs : ' + erreurs.join(' | ') : '.');
+}
+
+// Anciennes demandes LLC encore « éligibles » alors que la source de revenus
+// n'est ni freelance ni chef d'entreprise : passées en Non éligible (sans
+// email). Une ligne déjà décidée à la main (Validé, Refusé, lien envoyé) n'est
+// jamais touchée.
+function appliquerRegleLLC(classeur) {
+  var feuille = ongletFormulaire(classeur);
+  if (!feuille || feuille.getLastRow() < 2) return 0;
+  var valeurs = feuille.getDataRange().getValues();
+  var t = valeurs[0].map(String);
+  var cRev = t.indexOf('Source de revenus'), cElig = t.indexOf('Éligible'), cRais = t.indexOf('Raisons'),
+    cStat = t.indexOf('Statut'), cLien = t.indexOf('Lien de réservation');
+  if (cRev === -1 || cElig === -1 || cStat === -1) return 0;
+  var n = 0;
+  for (var i = 1; i < valeurs.length; i++) {
+    var l = valeurs[i];
+    if (l[cElig] !== 'Oui' || LLC_SOURCES_ELIGIBLES.indexOf(String(l[cRev]).trim()) !== -1) continue;
+    if (['Validé', 'Refusé'].indexOf(String(l[cStat])) !== -1) continue;
+    if (cLien !== -1 && /^(Envoyé|Refus envoyé)/.test(String(l[cLien]))) continue;
+    feuille.getRange(i + 1, cElig + 1).setValue('Non');
+    if (cRais !== -1) feuille.getRange(i + 1, cRais + 1).setValue(LLC_RAISON);
+    feuille.getRange(i + 1, cStat + 1).setValue('Non éligible');
+    n++;
+  }
+  if (n) console.log(n + ' ancienne(s) demande(s) LLC passée(s) en Non éligible (règle chef d\'entreprise / freelance).');
+  return n;
 }
