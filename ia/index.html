@@ -694,7 +694,7 @@
       <a class="bouton" id="vers-test" href="#eligibilite">
         <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Réserver mon appel gratuit (20&nbsp;min)
       </a>
-      <p class="mention">// 4 questions rapides d'abord, pour vérifier que l'appel peut t'aider.</p>
+      <p class="mention">// Réservé aux entrepreneurs et aux PME. 4 questions rapides d'abord.</p>
     </section>
 
     <!-- 4. CE QU'ON PEUT AUTOMATISER -->
@@ -733,7 +733,7 @@
         <div class="carte non">
           <h3>❌ Pas encore pour toi si</h3>
           <ul>
-            <li><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>tu n'as pas encore d'activité ni de revenus. Commence d'abord par lancer ton activité.</span></li>
+            <li><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>tu n'as pas encore d'activité ni de revenus, ni de quoi en lancer une. L'appel gratuit est réservé aux entrepreneurs.</span></li>
           </ul>
         </div>
       </div>
@@ -753,7 +753,7 @@
             <label><input type="radio" name="activite" value="Entreprise / PME" required /><span>J'ai une entreprise ou une PME</span></label>
             <label><input type="radio" name="activite" value="Indépendant(e) / freelance" /><span>Je suis indépendant(e) / freelance</span></label>
             <label><input type="radio" name="activite" value="Petite activité" /><span>J'ai une petite activité (boutique, vente en ligne…)</span></label>
-            <label><input type="radio" name="activite" value="Pas encore d'activité" data-bloquant="L'appel est fait pour les personnes qui ont déjà une activité. Commence d'abord par lancer la tienne." /><span>Je n'ai pas encore d'activité</span></label>
+            <label><input type="radio" name="activite" value="Pas encore d'activité" data-bloquant="L'appel gratuit est réservé aux entrepreneurs qui ont déjà une activité." /><span>Je n'ai pas encore d'activité</span></label>
           </div>
         </fieldset>
         <fieldset class="question">
@@ -827,10 +827,7 @@
           <h3 class="resultat__titre">Pas tout de suite, <span data-champ="prenom"></span>.</h3>
           <p>Ce qui bloque pour l'instant&nbsp;:</p>
           <ul class="raisons" id="raisons"></ul>
-          <p>En attendant, avance avec mes vidéos gratuites&nbsp;:</p>
-          <a class="bouton bouton--clair" href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer">
-            <i class="fa-brands fa-youtube" aria-hidden="true"></i> Voir mes vidéos YouTube
-          </a>
+          <p><strong>Cet appel gratuit est réservé aux entrepreneurs et aux PME.</strong> Reviens quand ton activité sera lancée.</p>
         </div>
         <button class="lien-texte" type="button" id="modifier">Modifier mes réponses</button>
       </div>
@@ -851,7 +848,7 @@
         <a href="https://www.tiktok.com/@claudiomarcelly" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><i class="fa-brands fa-tiktok" aria-hidden="true"></i></a>
         <a href="https://www.youtube.com/@claudiocodemg" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><i class="fa-brands fa-youtube" aria-hidden="true"></i></a>
       </nav>
-      <p><strong>Appel gratuit et sans engagement</strong></p>
+      <p><strong>Appel gratuit et sans engagement, réservé aux entrepreneurs et aux PME</strong></p>
       <p class="mention">// Claudio · IA &amp; automatisation</p>
     </footer>
   </main>
@@ -906,6 +903,7 @@
           liste.replaceChildren();
           raisons.forEach(function (r) { var li = document.createElement('li'); li.textContent = r; liste.appendChild(li); });
           ok.hidden = true; non.hidden = false;
+          modifier.hidden = true;   // pas de « Modifier » après un refus
         } else {
           // Dates affichées seulement maintenant : agenda intégré + lien de secours
           var cadre = document.createElement('iframe');
@@ -914,6 +912,7 @@
           agenda.replaceChildren(cadre);
           reserver.href = lien(false);
           ok.hidden = false; non.hidden = true;
+          modifier.hidden = false;
         }
         form.hidden = true;
         resultat.hidden = false;
@@ -921,7 +920,8 @@
         resultat.focus({ preventScroll: true });
       });
 
-      document.getElementById('modifier').addEventListener('click', function () {
+      var modifier = document.getElementById('modifier');
+      modifier.addEventListener('click', function () {
         resultat.hidden = true;
         agenda.replaceChildren();
         form.hidden = false;
