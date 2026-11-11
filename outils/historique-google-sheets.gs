@@ -14,6 +14,8 @@
  * vous choisissez « Validé » dans la colonne Statut de PAIEMENTS (après
  * avoir vu l'argent arriver sur Orange Money / MVola), le script envoie à
  * la personne un lien Calendly valable pour UNE seule réservation.
+ * Même principe pour l'appel « IA & automatisation » (page ia/) : onglet
+ * APPELS IA, colonne Statut.
  * Même principe pour l'appel découverte LLC : une demande éligible arrive
  * en « À vérifier » dans l'onglet du formulaire ; « Validé » envoie le lien
  * de réservation de l'appel, « Refusé » un email poli avec les contenus gratuits.
@@ -84,6 +86,19 @@ var COLONNES = [
 ];
 var STATUTS_FORMULAIRE = ['À vérifier', 'Validé', 'Refusé', 'Non éligible'];
 var LLC_NOM = /llc/i;   // reconnaît l'événement Calendly de l'appel découverte
+
+// Appel « IA & automatisation » (page ia/) : demandes à valider à la main
+var ONGLET_IA = 'APPELS IA';
+var COLONNES_IA = ['Date', 'Prénom', 'Email', 'Entreprise', 'Secteur', 'Activité', 'Clients',
+  'Temps perdu / semaine', 'Tâche qui prend le plus de temps', 'Accepte d\'être recontacté(e)',
+  'Éligible', 'Raisons', 'Source de la visite', 'Statut', 'Lien de réservation'];
+var IA_NOM = /\bIA\b/;   // reconnaît l'événement Calendly « Appel IA & automatisation »
+
+// Étiquettes HubSpot : chaque contact porte l'offre qui l'intéresse (Offre,
+// plusieurs choix possibles) et un statut par offre. Propriétés à créer une
+// fois dans HubSpot : lib_offre, lib_statut_llc, lib_statut_ia,
+// lib_statut_formation, lib_eligible_ia (voir outils/hubspot-raccourcis.md).
+var HUBSPOT_STATUTS = { 'À vérifier': 'a_verifier', 'Validé': 'valide', 'Refusé': 'refuse', 'Non éligible': 'non_eligible' };
 var LIENS_GRATUITS = '- Chaîne YouTube : https://www.youtube.com/@claudiocodemg\n' +
   '- Chaîne WhatsApp : https://whatsapp.com/channel/0029VbE1RgAFSAswvhjujX30';
 
@@ -104,7 +119,7 @@ var DOSSIER_CAPTURES = 'Captures paiement Link in Bio';
 // Rendez-vous pris sur Calendly (onglet recréé à chaque mise à jour)
 var ONGLET_CALENDLY = 'RDV CALENDLY';
 var COLONNES_CALENDLY = ['Date du RDV', 'Type de RDV', 'Nom', 'Email', 'Téléphone ou lien', 'Statut',
-  'Formulaire LLC', 'Paiement', 'Source', 'Réponses aux questions', 'Tes notes', 'Réservé le'];
+  'Éligibilité', 'Paiement', 'Source', 'Réponses aux questions', 'Tes notes', 'Réservé le'];
 var JOURS_HISTORIQUE = 60;   // RDV passés gardés dans l'onglet
 
 // Ce qui permet de reconnaître une ligne de test (fonction supprimerTests)
@@ -127,6 +142,7 @@ function doPost(e) {
   var champs = (e && e.parameter) || {};
   if (champs.type === 'sondage') return enregistrerSondage(champs);
   if (champs.type === 'paiement') return enregistrerPaiement(champs);
+  if (champs.type === 'appel_ia') return enregistrerAppelIA(champs);
   // Envoi vide (script lancé à la main, robot…) : on n'enregistre rien
   if (!champs.email && !champs.prenom) return ContentService.createTextOutput('ignoré');
 
@@ -135,7 +151,7 @@ function doPost(e) {
   try {
     // Premier onglet qui n'est ni le sondage ni les paiements (son nom importe peu)
     var feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (f) {
-      return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY].indexOf(f.getName()) === -1;
+      return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA].indexOf(f.getName()) === -1;
     })[0];
     titres(feuille, COLONNES.map(function (c) { return c[0]; }));
 
@@ -151,6 +167,8 @@ function doPost(e) {
     var etatHubSpot;
     try {
       etatHubSpot = envoyerHubSpot(champs);
+      etatHubSpot += ' · ' + etiqueterHubSpot(champs.email, champs.prenom, 'llc',
+        { lib_statut_llc: HUBSPOT_STATUTS[champs.eligible === 'Oui' ? 'À vérifier' : 'Non éligible'] });
     } catch (erreur) {
       etatHubSpot = 'HubSpot : erreur ' + erreur;
     }
@@ -228,6 +246,9 @@ function enregistrerPaiement(champs) {
     feuille.appendRow([date, prenom, email, propre(champs.p_moyen), propre(champs.p_numero), '', propre(champs.p_source),
       reference || '(aucune)', 'À vérifier', deja ? '⚠ Référence déjà utilisée dans une autre ligne' : '']);
     listeStatuts(feuille, 9, STATUTS_PAIEMENT);
+    try {
+      console.log(etiqueterHubSpot(email, prenom, 'formation', { lib_statut_formation: HUBSPOT_STATUTS['À vérifier'] }));
+    } catch (erreur) { console.log('HubSpot : erreur ' + erreur); }
     if (deja) feuille.getRange(feuille.getLastRow(), 1, 1, COLONNES_PAIEMENTS.length).setBackground('#FDE2DD');
     // Lien cliquable « Voir la capture » (sans formule : marche quelle que soit la langue du tableau)
     feuille.getRange(feuille.getLastRow(), 6).setRichTextValue(
@@ -254,6 +275,110 @@ function enregistrerPaiement(champs) {
   }
 }
 
+// Demande d'appel « IA & automatisation » (page ia/) : une ligne dans l'onglet
+// APPELS IA (Statut « À vérifier » si éligible), le contact dans HubSpot et,
+// si la personne est éligible, un email d'alerte « À VALIDER ».
+// Aucun lien de réservation n'est donné : il part quand vous choisissez « Validé ».
+function enregistrerAppelIA(champs) {
+  var prenom = propre(champs.ia_prenom), email = propre(champs.ia_email).toLowerCase();
+  if (!prenom || !email) return ContentService.createTextOutput('ignoré');
+  var eligible = champs.ia_eligible === 'Oui';
+  var verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try {
+    var classeur = SpreadsheetApp.getActiveSpreadsheet();
+    var feuille = classeur.getSheetByName(ONGLET_IA) || classeur.insertSheet(ONGLET_IA, classeur.getSheets().length);
+    titres(feuille, COLONNES_IA);
+    var ligne = [new Date(), prenom, email, propre(champs.ia_entreprise), propre(champs.ia_secteur),
+      propre(champs.ia_activite), propre(champs.ia_clients), propre(champs.ia_temps), propre(champs.ia_tache),
+      champs.ia_recontact === 'oui' ? 'Oui' : 'Non', eligible ? 'Oui' : 'Non', propre(champs.ia_raisons),
+      propre(champs.ia_source), eligible ? 'À vérifier' : 'Non éligible', ''];
+    feuille.appendRow(ligne);
+    listeStatuts(feuille, 14, STATUTS_FORMULAIRE);
+
+    var etatHubSpot;
+    try {
+      etatHubSpot = envoyerHubSpot({
+        email: email, prenom: prenom, eligible: eligible ? 'Oui' : 'Non',
+        situation: 'Appel IA · ' + texte(champs.ia_activite) + ' · clients : ' + texte(champs.ia_clients),
+        temps: texte(champs.ia_temps), raisons: texte(champs.ia_raisons),
+        source: 'Page IA' + (texte(champs.ia_source) ? ' · ' + texte(champs.ia_source) : '')
+      }, { ignorerVides: true, extra: { company: champs.ia_entreprise, message: champs.ia_tache } });
+      etatHubSpot += ' · ' + etiqueterHubSpot(email, prenom, 'ia', {
+        lib_eligible_ia: eligible ? 'true' : 'false',
+        lib_statut_ia: HUBSPOT_STATUTS[eligible ? 'À vérifier' : 'Non éligible']
+      });
+    } catch (erreur) {
+      etatHubSpot = 'HubSpot : erreur ' + erreur;
+    }
+    console.log(etatHubSpot);
+
+    if (EMAIL_ALERTE && eligible) {
+      MailApp.sendEmail(
+        EMAIL_ALERTE,
+        'Appel IA à valider : ' + prenom + (ligne[3] ? ' (' + ligne[3] + ')' : ''),
+        COLONNES_IA.slice(0, 13).map(function (c, i) {
+          return c + ' : ' + (ligne[i] instanceof Date ? ligne[i] : ligne[i] || '');
+        }).join('\n') +
+          '\n\nÀ VALIDER : aucun lien de réservation n\'a été donné. Onglet APPELS IA, colonne Statut : ' +
+          '« Validé » (le lien de l\'appel part par email) ou « Refusé ».' +
+          '\n\n' + etatHubSpot + '\nTableau : ' + classeur.getUrl()
+      );
+    }
+    return ContentService.createTextOutput('ok');
+  } finally {
+    verrou.releaseLock();
+  }
+}
+
+// Ajoute l'offre au contact HubSpot (sans retirer les autres) et règle ses
+// propriétés de statut. Crée le contact s'il n'existe pas. Ne bloque jamais :
+// renvoie une phrase (reprise dans les journaux / emails d'alerte).
+function etiqueterHubSpot(email, prenom, offre, proprietes) {
+  var cle = PropertiesService.getScriptProperties().getProperty('HUBSPOT_TOKEN');
+  if (!cle) return 'étiquette HubSpot : clé non réglée';
+  email = texte(email).toLowerCase();
+  if (!email) return 'étiquette HubSpot : pas d\'email';
+  var base = 'https://api.hubapi.com/crm/v3/objects/contacts';
+  var entetes = { Authorization: 'Bearer ' + cle };
+  var props = {};
+  Object.keys(proprietes || {}).forEach(function (k) { if (proprietes[k]) props[k] = proprietes[k]; });
+  var lire = UrlFetchApp.fetch(base + '/' + encodeURIComponent(email) + '?idProperty=email&properties=lib_offre',
+    { headers: entetes, muteHttpExceptions: true });
+  var rep;
+  if (lire.getResponseCode() === 200) {
+    var offres = String(JSON.parse(lire.getContentText()).properties.lib_offre || '').split(';').filter(String);
+    if (offres.indexOf(offre) === -1) offres.push(offre);
+    props.lib_offre = offres.join(';');
+    rep = UrlFetchApp.fetch(base + '/' + encodeURIComponent(email) + '?idProperty=email', {
+      method: 'patch', contentType: 'application/json', headers: entetes,
+      payload: JSON.stringify({ properties: props }), muteHttpExceptions: true
+    });
+  } else if (lire.getResponseCode() === 404) {
+    props.lib_offre = offre;
+    props.email = email;
+    if (texte(prenom)) props.firstname = texte(prenom);
+    rep = UrlFetchApp.fetch(base, {
+      method: 'post', contentType: 'application/json', headers: entetes,
+      payload: JSON.stringify({ properties: props }), muteHttpExceptions: true
+    });
+  } else {
+    return 'étiquette HubSpot : erreur ' + lire.getResponseCode();
+  }
+  return rep.getResponseCode() < 300 ? 'étiquette HubSpot « ' + offre + ' » OK'
+    : 'étiquette HubSpot : erreur ' + rep.getResponseCode() + ' ' + rep.getContentText().slice(0, 200);
+}
+
+// Statut Validé / Refusé recopié dans HubSpot (sans jamais bloquer l'envoi)
+function statutHubSpot(regles, email, prenom, statut) {
+  if (!regles.offre) return;
+  try {
+    var p = {};
+    p[regles.proprieteStatut] = HUBSPOT_STATUTS[statut];
+    console.log(etiqueterHubSpot(email, prenom, regles.offre, p));
+  } catch (erreur) { console.log('HubSpot : erreur ' + erreur); }
+}
+
 // Écrit la ligne de titres en haut de l'onglet si elle manque ou a changé
 // (par exemple quand une colonne est ajoutée).
 function titres(feuille, liste) {
@@ -267,7 +392,10 @@ function titres(feuille, liste) {
 
 // Met à jour le contact s'il existe déjà (même email), sinon le crée comme lead.
 // Renvoie une phrase qui décrit ce qui s'est passé (reprise dans l'email d'alerte).
-function envoyerHubSpot(champs) {
+// options (facultatif) : { ignorerVides: true } n'écrase pas les champs vides,
+// { extra: { propriété: valeur } } ajoute des propriétés HubSpot.
+function envoyerHubSpot(champs, options) {
+  options = options || {};
   var cle = PropertiesService.getScriptProperties().getProperty('HUBSPOT_TOKEN');
   if (!cle) return 'HubSpot : clé non réglée, contact non envoyé';
   var email = texte(champs.email).toLowerCase();
@@ -276,7 +404,12 @@ function envoyerHubSpot(champs) {
   var eligible = champs.eligible === 'Oui';
   var proprietes = { lib_eligible: eligible ? 'true' : 'false' };
   Object.keys(HUBSPOT_CHAMPS).forEach(function (c) {
-    proprietes[HUBSPOT_CHAMPS[c]] = texte(champs[c]);
+    var v = texte(champs[c]);
+    if (v || !options.ignorerVides) proprietes[HUBSPOT_CHAMPS[c]] = v;
+  });
+  Object.keys(options.extra || {}).forEach(function (k) {
+    var v = texte(options.extra[k]);
+    if (v) proprietes[k] = v;
   });
   // Statut du lead : "Nouveau" si éligible, "Non qualifié" sinon
   var statut = { hs_lead_status: eligible ? 'NEW' : 'UNQUALIFIED' };
@@ -364,7 +497,9 @@ function installerAutomatismes() {
     titres(formulaire, COLONNES.map(function (c) { return c[0]; }));
     listeStatuts(formulaire, COLONNES.length - 1, STATUTS_FORMULAIRE);
   }
-  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation (formation + appel LLC).');
+  var ia = classeur.getSheetByName(ONGLET_IA);
+  if (ia) { titres(ia, COLONNES_IA); listeStatuts(ia, 14, STATUTS_FORMULAIRE); }
+  console.log('Automatismes installés : synchro Calendly (30 min) et liens de réservation (formation, appel LLC, appel IA).');
   synchroCalendly();
 }
 // Ancien nom, gardé pour ne rien casser
@@ -382,6 +517,7 @@ function reglesValidation(feuille) {
   if (feuille.getName() === ONGLET_PAIEMENTS) {
     return {
       statut: 9, lien: 10, prenom: 2, email: 3, evenement: FORMATION_NOM,
+      offre: 'formation', proprieteStatut: 'lib_statut_formation',
       valide: function (prenom, lien) {
         return {
           subject: 'Ton paiement est validé : réserve ta formation vidéo',
@@ -399,10 +535,34 @@ function reglesValidation(feuille) {
       }
     };
   }
+  if (feuille.getName() === ONGLET_IA) {
+    return {
+      statut: 14, lien: 15, prenom: 2, email: 3, evenement: IA_NOM,
+      offre: 'ia', proprieteStatut: 'lib_statut_ia',
+      valide: function (prenom, lien) {
+        return {
+          subject: 'Ton appel IA & automatisation : choisis ton créneau',
+          body: 'Bonjour ' + prenom + ',\n\nMerci pour tes réponses ! J\'ai regardé ta demande : je te propose un appel ' +
+            'gratuit de 20 minutes pour trouver la tâche à automatiser en premier dans ton activité.\n\n' +
+            'Choisis ton créneau ici. Ce lien est personnel et ne marche que pour une seule réservation :\n' +
+            lien + '\n\nÀ très vite,\nClaudio'
+        };
+      },
+      refuse: function (prenom) {
+        return {
+          subject: 'Ta demande d\'appel IA & automatisation',
+          body: 'Bonjour ' + prenom + ',\n\nMerci pour ta demande. L\'appel gratuit est réservé aux entrepreneurs et aux PME ' +
+            'qui ont déjà une activité et des clients : je ne peux pas te le proposer pour l\'instant.\n\n' +
+            'Reviens vers moi quand ton activité sera lancée.\n\nClaudio'
+        };
+      }
+    };
+  }
   var formulaire = ongletFormulaire(SpreadsheetApp.getActiveSpreadsheet());
   if (formulaire && feuille.getName() === formulaire.getName()) {
     return {
       statut: COLONNES.length - 1, lien: COLONNES.length, prenom: 2, email: 3, evenement: LLC_NOM,
+      offre: 'llc', proprieteStatut: 'lib_statut_llc',
       valide: function (prenom, lien) {
         return {
           subject: 'Ton appel découverte LLC : choisis ton créneau',
@@ -448,11 +608,13 @@ function quandModifie(e) {
         var message = regles.valide(prenom, lien);
         MailApp.sendEmail({ to: email, name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE, subject: message.subject, body: message.body });
         cible.setValue('Envoyé le ' + maintenantTexte() + ' : ' + lien);
+        statutHubSpot(regles, email, prenom, 'Validé');
         feuille.getRange(r, 1, 1, regles.lien).setBackground('#E3F4E1');
       } else if (statut === 'Refusé') {
         var refus = regles.refuse(prenom);
         MailApp.sendEmail({ to: email, name: 'Claudio Marcelly', replyTo: EMAIL_ALERTE, subject: refus.subject, body: refus.body });
         cible.setValue('Refus envoyé le ' + maintenantTexte());
+        statutHubSpot(regles, email, prenom, 'Refusé');
       }
     } catch (err) {
       cible.setValue('⚠ Erreur : ' + String(err.message || err).slice(0, 200));
@@ -519,6 +681,7 @@ function synchroCalendly() {
 
   var classeur = SpreadsheetApp.getActiveSpreadsheet();
   var formulaires = parEmail(ongletFormulaire(classeur), 'Email', 'Éligible');
+  var demandesIA = parEmail(classeur.getSheetByName(ONGLET_IA), 'Email', 'Statut');
   var paiements = parEmail(classeur.getSheetByName(ONGLET_PAIEMENTS), 'Email', 'Statut');
   var maintenant = new Date();
   var lignes = [];
@@ -533,9 +696,11 @@ function synchroCalendly() {
       var email = String(inv.email || '').toLowerCase();
       var statut = (ev.status === 'canceled' || inv.status === 'canceled') ? 'Annulé'
         : inv.no_show ? 'Absent' : (debut > maintenant ? 'À venir' : 'Passé');
-      // Seul l'appel LLC passe par le formulaire d'éligibilité de la page principale
-      var formulaire = !llc ? '' : (email in formulaires
-        ? 'Éligible : ' + formulaires[email] : '⚠ Aucun formulaire');
+      // Éligibilité : formulaire de la page principale (LLC) ou demande de la page ia/ (IA)
+      var ia = !formation && !llc && IA_NOM.test(ev.name);
+      var formulaire = llc ? (email in formulaires ? 'LLC · éligible : ' + formulaires[email] : '⚠ Aucun formulaire LLC')
+        : ia ? (email in demandesIA ? 'IA · ' + (demandesIA[email] || 'À vérifier') : '⚠ Aucune demande IA')
+        : '';
       var statutPaiement = paiements[email] || 'À vérifier';
       var capture = !formation ? '' : (!(email in paiements) ? '⚠ Aucune capture'
         : (statutPaiement === 'Validé' ? 'Validé' : '⚠ ' + statutPaiement));
@@ -579,7 +744,7 @@ function synchroCalendly() {
 // Onglet du formulaire d'éligibilité : le premier qui n'est pas un onglet spécial
 function ongletFormulaire(classeur) {
   return classeur.getSheets().filter(function (f) {
-    return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY].indexOf(f.getName()) === -1;
+    return [ONGLET_SONDAGE, ONGLET_PAIEMENTS, ONGLET_CALENDLY, ONGLET_IA].indexOf(f.getName()) === -1;
   })[0];
 }
 

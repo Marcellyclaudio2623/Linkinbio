@@ -227,6 +227,7 @@
     .statut--non { background: #FBEAE6; }
     .raisons { display: grid; gap: 6px; padding-left: 1.2em; font-weight: 600; }
     .formulaire__erreur { color: var(--rouge-fort); font-weight: 700; }
+    .piege { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
     /* ===== 9. PIED DE PAGE ===== */
     .pied { display: grid; gap: 14px; justify-items: center; text-align: center; padding-top: 4px; }
@@ -712,7 +713,7 @@
     <section class="apparait" style="--d: 3" aria-labelledby="titre-etapes">
       <h2 class="label" id="titre-etapes">// Comment ça se passe</h2>
       <ol class="etapes carte">
-        <li>Tu réserves un appel de 20&nbsp;minutes.</li>
+        <li>Tu réponds à 4 questions&nbsp;: je vérifie ta demande et je t'envoie ton lien pour réserver 20&nbsp;minutes.</li>
         <li>On trouve ensemble la tâche qui te fait perdre le plus de temps.</li>
         <li>Je t'apprends à l'automatiser avec l'IA, à partir de tes outils actuels (WhatsApp, Excel, e-mail).</li>
       </ol>
@@ -746,7 +747,10 @@
          avec les réponses jointes à la réservation (1re question de l'événement). -->
     <section class="apparait" style="--d: 5" aria-labelledby="titre-form" id="eligibilite">
       <h2 class="label" id="titre-form">// Vérifie ton éligibilité (1&nbsp;min)</h2>
-      <form class="carte formulaire" id="preparer">
+      <!-- data-historique : URL du script Google (même que la page principale).
+           Une demande éligible y est enregistrée (onglet APPELS IA, « À vérifier »). -->
+      <form class="carte formulaire" id="preparer"
+            data-historique="https://script.google.com/macros/s/AKfycbymTnRgB36dXRCvrnx7UtuOzgURG_a2Chgmoq1mrklRVtax4hCFdq3Xrx5Rg0wfvNEL/exec">
         <fieldset class="question">
           <legend><span class="question__num">01</span>Où en est ton activité&nbsp;?</legend>
           <div class="choix">
@@ -782,6 +786,10 @@
           <input type="text" id="prenom" name="prenom" autocomplete="given-name" required />
         </div>
         <div class="champ">
+          <label for="email">Ton email <span class="facultatif">(ton lien de réservation arrive ici)</span></label>
+          <input type="email" id="email" name="email" autocomplete="email" inputmode="email" required />
+        </div>
+        <div class="champ">
           <label for="entreprise">Nom de ton entreprise ou de ton activité <span class="facultatif">(facultatif)</span></label>
           <input type="text" id="entreprise" name="entreprise" autocomplete="organization" />
         </div>
@@ -805,22 +813,23 @@
           <input type="checkbox" id="recontact" name="recontact" />
           <span>J'accepte d'être recontacté(e) pour préparer l'appel.</span>
         </label>
+        <div class="piege" aria-hidden="true">
+          <label for="site">Ne pas remplir</label>
+          <input type="text" id="site" name="site" tabindex="-1" autocomplete="off" />
+        </div>
         <button class="bouton" type="submit">
-          <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Voir si je suis éligible
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Envoyer ma demande
         </button>
+        <p class="formulaire__erreur" id="erreur" role="alert" hidden></p>
         <p class="mention"><i class="fa-solid fa-lock" aria-hidden="true"></i> Tes informations servent uniquement à préparer l'appel.</p>
       </form>
 
       <!-- Résultat : éligible (dates) ou pas encore -->
       <div class="carte resultat" id="resultat" hidden tabindex="-1" aria-live="polite">
         <div id="resultat-ok" hidden>
-          <p class="statut statut--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Éligible</p>
-          <h3 class="resultat__titre">C'est tout bon, <span data-champ="prenom"></span>&nbsp;! <em>Choisis ton créneau.</em></h3>
-          <p>Tes réponses seront jointes à ta réservation.</p>
-          <div class="agenda" id="agenda"></div>
-          <a class="bouton" id="reserver" href="#" target="_blank" rel="noopener noreferrer">
-            <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Ouvrir l'agenda dans une nouvelle page
-          </a>
+          <p class="statut statut--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Demande envoyée</p>
+          <h3 class="resultat__titre">C'est noté, <span data-champ="prenom"></span>&nbsp;! <em>Je regarde ta demande.</em></h3>
+          <p>Ton profil correspond. Je vérifie tes réponses et tu reçois à <strong data-champ="email"></strong> ton lien de réservation personnel, sous 24&nbsp;h. Pense à regarder tes spams.</p>
         </div>
         <div id="resultat-non" hidden>
           <p class="statut statut--non"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Pas encore éligible</p>
@@ -855,75 +864,85 @@
 
   <script>
     (function () {
-      // Adresse de l'événement Calendly « Appel IA & automatisation (20 min) »
-      var CALENDLY = 'https://calendly.com/claudiomarcellyb/appel-ia-automatisation-20-min';
-
       var form = document.getElementById('preparer');
       var resultat = document.getElementById('resultat');
       var ok = document.getElementById('resultat-ok');
       var non = document.getElementById('resultat-non');
-      var agenda = document.getElementById('agenda');
-      var reserver = document.getElementById('reserver');
+      var erreur = document.getElementById('erreur');
+      var historique = form.dataset.historique;
 
       function valeur(nom) { return form.elements[nom] ? String(form.elements[nom].value || '').trim() : ''; }
+      function source() { try { return localStorage.getItem('source-visite') || ''; } catch (e) { return ''; } }
 
-      // Réponses → texte de la 1re question Calendly (a1)
-      function resume() {
-        var lignes = [
-          'Activité : ' + valeur('activite'),
-          'Clients : ' + valeur('clients'),
-          'Temps sur tâches répétitives : ' + valeur('temps'),
-          'Tâche qui prend le plus de temps : ' + valeur('tache')
-        ];
-        if (valeur('entreprise')) lignes.push('Entreprise : ' + valeur('entreprise'));
-        if (valeur('secteur')) lignes.push('Secteur : ' + valeur('secteur'));
-        lignes.push("Accepte d'être recontacté(e) : " + (form.elements.recontact.checked ? 'oui' : 'non'));
-        return lignes.join(' | ');
-      }
-      function lien(integre) {
-        var url = new URL(CALENDLY);
-        url.searchParams.set('name', valeur('prenom'));
-        url.searchParams.set('first_name', valeur('prenom'));
-        url.searchParams.set('a1', resume());
-        url.searchParams.set('utm_source', 'linkinbio-ia');
-        if (integre) {
-          url.searchParams.set('embed_domain', location.hostname || 'localhost');
-          url.searchParams.set('embed_type', 'Inline');
-          url.searchParams.set('hide_gdpr_banner', '1');
-        }
-        return url.toString();
+      // Envoi au script Google. Champs préfixés ia_ : une ancienne version du
+      // script les ignore au lieu de les ranger avec le formulaire LLC.
+      // attendre = true : on attend « ok » (demande éligible, ne doit jamais se perdre).
+      function enregistrer(raisons, attendre) {
+        if (!historique) return Promise.reject(new Error('pas d\'adresse'));
+        return fetch(historique, {
+          method: 'POST',
+          mode: attendre ? 'cors' : 'no-cors',
+          keepalive: !attendre,
+          body: new URLSearchParams({
+            type: 'appel_ia',
+            ia_prenom: valeur('prenom'), ia_email: valeur('email'),
+            ia_entreprise: valeur('entreprise'), ia_secteur: valeur('secteur'),
+            ia_activite: valeur('activite'), ia_clients: valeur('clients'),
+            ia_temps: valeur('temps'), ia_tache: valeur('tache'),
+            ia_recontact: form.elements.recontact.checked ? 'oui' : 'non',
+            ia_eligible: raisons.length ? 'Non' : 'Oui', ia_raisons: raisons.join(' / '),
+            ia_source: source()
+          })
+        }).then(function (rep) {
+          if (!attendre) return;
+          return rep.text().then(function (t) { if (t.trim() !== 'ok') throw new Error(t); });
+        });
       }
 
-      form.addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        var raisons = Array.prototype.map.call(form.querySelectorAll('[data-bloquant]:checked'), function (c) { return c.dataset.bloquant; });
+      function montrer(raisons) {
         resultat.querySelectorAll('[data-champ="prenom"]').forEach(function (n) { n.textContent = valeur('prenom'); });
+        resultat.querySelectorAll('[data-champ="email"]').forEach(function (n) { n.textContent = valeur('email'); });
         if (raisons.length) {
           var liste = document.getElementById('raisons');
           liste.replaceChildren();
           raisons.forEach(function (r) { var li = document.createElement('li'); li.textContent = r; liste.appendChild(li); });
-          ok.hidden = true; non.hidden = false;
-          modifier.hidden = true;   // pas de « Modifier » après un refus
-        } else {
-          // Dates affichées seulement maintenant : agenda intégré + lien de secours
-          var cadre = document.createElement('iframe');
-          cadre.src = lien(true);
-          cadre.title = "Choisir un créneau pour l'appel IA & automatisation";
-          agenda.replaceChildren(cadre);
-          reserver.href = lien(false);
-          ok.hidden = false; non.hidden = true;
-          modifier.hidden = false;
         }
+        ok.hidden = !!raisons.length; non.hidden = !raisons.length;
+        modifier.hidden = true;   // pas de « Modifier » : la demande est envoyée
         form.hidden = true;
         resultat.hidden = false;
         resultat.scrollIntoView({ block: 'start' });
         resultat.focus({ preventScroll: true });
+      }
+
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        if (form.elements.site.value) return;   // robot
+        var raisons = Array.prototype.map.call(form.querySelectorAll('[data-bloquant]:checked'), function (c) { return c.dataset.bloquant; });
+        erreur.hidden = true;
+        if (raisons.length) {
+          enregistrer(raisons, false).catch(function () {});
+          montrer(raisons);
+          return;
+        }
+        var bouton = form.querySelector('button[type="submit"]');
+        var texteBouton = bouton.innerHTML;
+        bouton.disabled = true;
+        bouton.textContent = 'Envoi de ta demande…';
+        enregistrer(raisons, true).then(function () {
+          montrer(raisons);
+        }).catch(function () {
+          erreur.textContent = "L'envoi n'a pas marché. Vérifie ta connexion et réessaie, ou écris-moi sur WhatsApp (bouton plus bas).";
+          erreur.hidden = false;
+        }).then(function () {
+          bouton.disabled = false;
+          bouton.innerHTML = texteBouton;
+        });
       });
 
       var modifier = document.getElementById('modifier');
       modifier.addEventListener('click', function () {
         resultat.hidden = true;
-        agenda.replaceChildren();
         form.hidden = false;
         form.scrollIntoView({ block: 'start' });
       });
