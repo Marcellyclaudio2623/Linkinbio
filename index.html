@@ -938,68 +938,77 @@
     }
 
     /* =========================================================
-       BANNIÈRE « NOS FORMATIONS » : bandeau rouge qui défile
+       BANNIÈRE « NOS OFFRES » : 3 annonces qui alternent
+       (formation, IA & automatisation, LLC), chacune avec son lien
        ========================================================= */
     .banniere {
       position: relative;
-      isolation: isolate;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 52px;
-      margin-right: 6px;
-      padding: 6px 6px 6px 6px;
+      display: grid;                       /* toutes les annonces dans la même case : */
+      margin-right: 6px;                   /* la hauteur reste celle de la plus longue */
       border: var(--bord) solid var(--encre);
       border-radius: 14px;
       background: var(--rouge-fort);
       color: #fff;
       box-shadow: 5px 5px 0 var(--encre);
       overflow: hidden;
-      transition: transform 160ms var(--doux), box-shadow 160ms var(--doux);
     }
-    @media (hover: hover) {
-      .banniere:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--encre); }
-      .banniere:hover .banniere__piste { animation-play-state: paused; }
+    .banniere__annonce {
+      grid-area: 1 / 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "badge badge" "texte fleche";
+      align-items: center;
+      gap: 6px 10px;
+      padding: 10px 14px 22px 12px;
     }
-    .banniere:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--encre); }
-    .banniere:focus-visible { outline: 3px dashed var(--rouge); outline-offset: 4px; }
+    .banniere__annonce[inert] { visibility: hidden; }
+    .banniere__annonce:not([inert]) { animation: annonce-entre 420ms var(--doux) both; }
+    .banniere__annonce:focus-visible { outline: 3px dashed var(--jaune); outline-offset: -6px; }
     .banniere__badge {
-      flex-shrink: 0;
-      z-index: 1;
-      padding: 6px 10px;
+      grid-area: badge;
+      justify-self: start;
+      padding: 6px 9px;
       border: 2px solid var(--encre);
       border-radius: 9px;
       background: var(--jaune);
       color: var(--encre);
-      font: 800 0.75rem/1.1 var(--mono);
+      font: 800 0.6875rem/1.1 var(--mono);
       letter-spacing: 0.04em;
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .banniere__fenetre {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
-              mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
-    }
-    .banniere__piste {
+    .banniere__annonce[data-offre="ia"] .banniere__badge { background: #25D366; }
+    .banniere__annonce[data-offre="llc"] .banniere__badge { background: var(--bleu); }
+    .banniere__texte { grid-area: texte; min-width: 0; font: 700 0.9375rem/1.3 var(--sans); }
+    .banniere__texte strong { color: var(--jaune); font-weight: 800; }
+    .banniere__fleche { grid-area: fleche; transition: transform 200ms var(--doux); }
+    @media (hover: hover) { .banniere__annonce:hover .banniere__fleche { transform: translateX(4px); } }
+    .banniere__points {
+      position: absolute;
+      left: 0; right: 0; bottom: 4px;
       display: flex;
-      width: max-content;
-      animation: defile var(--duree, 22s) linear infinite;
+      justify-content: center;
+      gap: 2px;
     }
-    .banniere__lot { display: flex; flex-shrink: 0; }
-    .banniere__lot > span {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding-right: 18px;
-      font: 700 0.9375rem/1.2 var(--sans);
-      white-space: nowrap;
+    .banniere__points button {
+      width: 24px; height: 14px;          /* zone de clic plus large que le point */
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
     }
-    .banniere__lot > span::after { content: "✦"; color: var(--jaune); margin-left: 10px; }
-    .banniere__lot strong { color: var(--jaune); font-weight: 800; }
-    @keyframes defile { to { transform: translateX(-50%); } }
+    .banniere__points button::before {
+      content: "";
+      display: block;
+      width: 7px; height: 7px;
+      margin: auto;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.45);
+      transition: background 200ms, width 200ms;
+    }
+    .banniere__points button[aria-current="true"]::before { width: 16px; border-radius: 4px; background: var(--jaune); }
+    .banniere__points button:focus-visible { outline: 2px dashed var(--jaune); outline-offset: 1px; }
+    @keyframes annonce-entre { from { opacity: 0; transform: translateY(8px); } }
 
     /* =========================================================
        10. ACCESSIBILITÉ : réduction des animations
@@ -1015,16 +1024,9 @@
       .sondage, .sondage.est-partie { animation: none; }
       .sondage__choix button { transition: none; }
       .sondage__choix button:hover, .sondage__choix button:active { transform: none; }
-      /* Bannière : pas de défilement, le texte passe à la ligne */
-      .banniere, .banniere:hover, .banniere:active { transition: none; transform: none; }
-      .banniere { flex-wrap: wrap; padding: 8px 12px 10px; }
-      .banniere__fenetre { flex-basis: 100%; -webkit-mask-image: none; mask-image: none; }
-      .banniere__piste { animation: none; width: auto; display: block; }
-      .banniere__lot { display: block; line-height: 1.45; }
-      .banniere__lot > span { display: inline; white-space: normal; padding-right: 4px; }
-      .banniere__lot > span::after { margin-left: 6px; }
-      .banniere__lot > span:last-child::after { content: none; }
-      .banniere__lot[aria-hidden="true"] { display: none; }
+      /* Bannière : pas d'animation d'entrée (le changement automatique est aussi coupé, voir le script) */
+      .banniere__annonce:not([inert]) { animation: none; }
+      .banniere__fleche, .banniere__points button::before { transition: none; }
     }
   </style>
 </head>
@@ -1033,28 +1035,31 @@
   <main class="page">
 
     <!-- =====================================================
-         BANNIÈRE « NOS FORMATIONS »
-         - Chaque <span> du lot = un message qui défile. Pour annoncer une
-           nouvelle formation, ajoutez des <span> (<strong> = mot en jaune).
-         - Le script recopie le lot tout seul pour un défilement sans coupure.
-         - Le clic descend jusqu'à la formation (#formation) et l'ouvre.
-         - Pour retirer la bannière : supprimez ce bloc <a>.
+         BANNIÈRE « NOS OFFRES » : une annonce par offre, qui alternent
+         toutes les 5 s (pause au survol, au toucher ou au clavier).
+         - Chaque <a class="banniere__annonce"> = une annonce, avec son lien :
+           #formation (ouvre l'inscription), ia/ (page IA), #appel-llc
+           (ouvre le test d'éligibilité). Ajoutez ou retirez des <a>.
+         - <strong> = mots en jaune. Les points sont créés par le script.
          ===================================================== -->
-    <a class="banniere reveal" style="--d: 0" id="banniere-formations" href="#formation"
-       data-reaction="content pointe" aria-label="Nos formations : formation vidéo de 1 h 30 à 100 000 Ar. Voir la formation et s'inscrire.">
-      <span class="banniere__badge" aria-hidden="true">Nos formations</span>
-      <span class="banniere__fenetre" aria-hidden="true">
-        <span class="banniere__piste">
-          <span class="banniere__lot">
-            <span>🎬 <strong>Formation vidéo</strong> 1&nbsp;h&nbsp;30 en visio</span>
-            <span>Crée des vidéos animées comme les miennes</span>
-            <span>TikTok · Reels · Shorts</span>
-            <span><strong>100&nbsp;000&nbsp;Ar</strong></span>
-            <span>Je m'inscris →</span>
-          </span>
-        </span>
-      </span>
-    </a>
+    <div class="banniere reveal" style="--d: 0" id="banniere-offres" role="region" aria-label="Nos offres" aria-roledescription="carrousel">
+      <a class="banniere__annonce" data-offre="formation" href="#formation" data-reaction="content pointe">
+        <span class="banniere__badge">Formation</span>
+        <span class="banniere__texte">🎬 Crée des vidéos animées comme les miennes&nbsp;: <strong>1&nbsp;h&nbsp;30 · 100&nbsp;000&nbsp;Ar</strong></span>
+        <i class="fa-solid fa-arrow-right banniere__fleche" aria-hidden="true"></i>
+      </a>
+      <a class="banniere__annonce" data-offre="ia" href="ia/" data-reaction="malin pointe">
+        <span class="banniere__badge">Entrepreneurs &amp; PME</span>
+        <span class="banniere__texte">🤖 Automatise ton entreprise avec l'IA&nbsp;: <strong>appel gratuit 20&nbsp;min</strong></span>
+        <i class="fa-solid fa-arrow-right banniere__fleche" aria-hidden="true"></i>
+      </a>
+      <a class="banniere__annonce" data-offre="llc" href="#appel-llc" data-reaction="insiste pointe">
+        <span class="banniere__badge">LLC</span>
+        <span class="banniere__texte">🇺🇸 Ta LLC américaine pour encaisser avec <strong>Stripe &amp; PayPal</strong></span>
+        <i class="fa-solid fa-arrow-right banniere__fleche" aria-hidden="true"></i>
+      </a>
+      <div class="banniere__points" role="group" aria-label="Choisir une annonce"></div>
+    </div>
 
     <!-- =====================================================
          EN-TÊTE : personnage, nom, thèmes
@@ -1539,7 +1544,7 @@
            ajoute alors une ligne dans la feuille Google Sheets. Vide = rien
            n'est envoyé ni enregistré.
          ===================================================== -->
-    <section class="appel" aria-labelledby="titre-appel">
+    <section class="appel" aria-labelledby="titre-appel" id="appel-llc">
       <h2 class="label reveal" id="titre-appel" style="--d: 3">// Réserver un appel</h2>
 
       <div class="appel__carte reveal" style="--d: 4">
@@ -2390,26 +2395,64 @@
       });
     })();
 
-    /* Bannière « Nos formations » : recopie le lot (défilement sans coupure),
-       vitesse selon la longueur du texte, et clic → formation ouverte. */
+    /* Bannière « Nos offres » : une annonce à la fois, changement toutes les
+       5 s (coupé si le visiteur réduit les animations), pause au survol, au
+       toucher et au clavier, points pour choisir. Clic : formation ou appel LLC
+       ouverts directement ; l'annonce IA mène à la page ia/. */
     (function () {
-      var banniere = document.getElementById('banniere-formations');
+      var banniere = document.getElementById('banniere-offres');
       if (!banniere) return;
-      var piste = banniere.querySelector('.banniere__piste');
-      var lot = piste.querySelector('.banniere__lot');
-      var copie = lot.cloneNode(true);
-      copie.setAttribute('aria-hidden', 'true');
-      piste.appendChild(copie);
-      piste.style.setProperty('--duree', Math.max(14, Math.round(lot.textContent.length / 7)) + 's');
+      var annonces = Array.prototype.slice.call(banniere.querySelectorAll('.banniere__annonce'));
+      var points = banniere.querySelector('.banniere__points');
+      var actuelle = 0, minuteur = null, enPause = false;
+      var calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      banniere.addEventListener('click', function (e) {
-        var cible = document.getElementById('formation');
-        if (!cible) return;
-        e.preventDefault();
-        cible.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        var ouvrir = document.getElementById('ouvrir-formation');
-        if (ouvrir && !ouvrir.hidden) setTimeout(function () { ouvrir.click(); }, 450);
+      var noms = { formation: 'Formation vidéo', ia: 'IA & automatisation', llc: 'LLC' };
+      var boutons = annonces.map(function (a, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Annonce ' + (i + 1) + ' : ' + (noms[a.dataset.offre] || ''));
+        b.addEventListener('click', function () { montrer(i); relancer(); });
+        points.appendChild(b);
+        return b;
       });
+
+      function montrer(i) {
+        actuelle = (i + annonces.length) % annonces.length;
+        // inert : l'annonce cachée garde sa place (hauteur stable) mais n'est ni
+        // visible, ni cliquable, ni lue par les lecteurs d'écran
+        annonces.forEach(function (a, k) { a.inert = k !== actuelle; });
+        boutons.forEach(function (b, k) { b.setAttribute('aria-current', String(k === actuelle)); });
+      }
+      function relancer() {
+        clearInterval(minuteur);
+        if (calme || enPause || annonces.length < 2) return;
+        minuteur = setInterval(function () { montrer(actuelle + 1); }, 5000);
+      }
+      function pause(v) { enPause = v; relancer(); }
+      banniere.addEventListener('mouseenter', function () { pause(true); });
+      banniere.addEventListener('mouseleave', function () { pause(false); });
+      banniere.addEventListener('focusin', function () { pause(true); });
+      banniere.addEventListener('focusout', function () { pause(false); });
+      banniere.addEventListener('touchstart', function () { pause(true); setTimeout(function () { pause(false); }, 8000); }, { passive: true });
+
+      // Clic sur une annonce interne : descendre et ouvrir la bonne carte
+      var ouvertures = { '#formation': 'ouvrir-formation', '#appel-llc': 'ouvrir-eligibilite' };
+      annonces.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          var cible = a.getAttribute('href');
+          if (!(cible in ouvertures)) return;            // ia/ : lien normal
+          var section = document.querySelector(cible);
+          if (!section) return;
+          e.preventDefault();
+          section.scrollIntoView({ behavior: calme ? 'auto' : 'smooth', block: 'start' });
+          var bouton = document.getElementById(ouvertures[cible]);
+          if (bouton && !bouton.hidden) setTimeout(function () { bouton.click(); }, calme ? 0 : 450);
+        });
+      });
+
+      montrer(0);
+      relancer();
     })();
   </script>
 </body>
