@@ -938,6 +938,70 @@
     }
 
     /* =========================================================
+       BANNIÈRE « NOS FORMATIONS » : bandeau rouge qui défile
+       ========================================================= */
+    .banniere {
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      margin-right: 6px;
+      padding: 6px 6px 6px 6px;
+      border: var(--bord) solid var(--encre);
+      border-radius: 14px;
+      background: var(--rouge-fort);
+      color: #fff;
+      box-shadow: 5px 5px 0 var(--encre);
+      overflow: hidden;
+      transition: transform 160ms var(--doux), box-shadow 160ms var(--doux);
+    }
+    @media (hover: hover) {
+      .banniere:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--encre); }
+      .banniere:hover .banniere__piste { animation-play-state: paused; }
+    }
+    .banniere:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--encre); }
+    .banniere:focus-visible { outline: 3px dashed var(--rouge); outline-offset: 4px; }
+    .banniere__badge {
+      flex-shrink: 0;
+      z-index: 1;
+      padding: 6px 10px;
+      border: 2px solid var(--encre);
+      border-radius: 9px;
+      background: var(--jaune);
+      color: var(--encre);
+      font: 800 0.75rem/1.1 var(--mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .banniere__fenetre {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    }
+    .banniere__piste {
+      display: flex;
+      width: max-content;
+      animation: defile var(--duree, 22s) linear infinite;
+    }
+    .banniere__lot { display: flex; flex-shrink: 0; }
+    .banniere__lot > span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 18px;
+      font: 700 0.9375rem/1.2 var(--sans);
+      white-space: nowrap;
+    }
+    .banniere__lot > span::after { content: "✦"; color: var(--jaune); margin-left: 10px; }
+    .banniere__lot strong { color: var(--jaune); font-weight: 800; }
+    @keyframes defile { to { transform: translateX(-50%); } }
+
+    /* =========================================================
        10. ACCESSIBILITÉ : réduction des animations
        (le personnage coupe aussi ses propres animations)
        ========================================================= */
@@ -951,12 +1015,46 @@
       .sondage, .sondage.est-partie { animation: none; }
       .sondage__choix button { transition: none; }
       .sondage__choix button:hover, .sondage__choix button:active { transform: none; }
+      /* Bannière : pas de défilement, le texte passe à la ligne */
+      .banniere, .banniere:hover, .banniere:active { transition: none; transform: none; }
+      .banniere { flex-wrap: wrap; padding: 8px 12px 10px; }
+      .banniere__fenetre { flex-basis: 100%; -webkit-mask-image: none; mask-image: none; }
+      .banniere__piste { animation: none; width: auto; display: block; }
+      .banniere__lot { display: block; line-height: 1.45; }
+      .banniere__lot > span { display: inline; white-space: normal; padding-right: 4px; }
+      .banniere__lot > span::after { margin-left: 6px; }
+      .banniere__lot > span:last-child::after { content: none; }
+      .banniere__lot[aria-hidden="true"] { display: none; }
     }
   </style>
 </head>
 
 <body>
   <main class="page">
+
+    <!-- =====================================================
+         BANNIÈRE « NOS FORMATIONS »
+         - Chaque <span> du lot = un message qui défile. Pour annoncer une
+           nouvelle formation, ajoutez des <span> (<strong> = mot en jaune).
+         - Le script recopie le lot tout seul pour un défilement sans coupure.
+         - Le clic descend jusqu'à la formation (#formation) et l'ouvre.
+         - Pour retirer la bannière : supprimez ce bloc <a>.
+         ===================================================== -->
+    <a class="banniere reveal" style="--d: 0" id="banniere-formations" href="#formation"
+       data-reaction="content pointe" aria-label="Nos formations : formation vidéo de 1 h 30 à 100 000 Ar. Voir la formation et s'inscrire.">
+      <span class="banniere__badge" aria-hidden="true">Nos formations</span>
+      <span class="banniere__fenetre" aria-hidden="true">
+        <span class="banniere__piste">
+          <span class="banniere__lot">
+            <span>🎬 <strong>Formation vidéo</strong> 1&nbsp;h&nbsp;30 en visio</span>
+            <span>Crée des vidéos animées comme les miennes</span>
+            <span>TikTok · Reels · Shorts</span>
+            <span><strong>100&nbsp;000&nbsp;Ar</strong></span>
+            <span>Je m'inscris →</span>
+          </span>
+        </span>
+      </span>
+    </a>
 
     <!-- =====================================================
          EN-TÊTE : personnage, nom, thèmes
@@ -1604,7 +1702,7 @@
            « Validé ») et le script Google envoie alors par email un lien
            de réservation Calendly valable une seule fois.
          ===================================================== -->
-    <section class="appel" aria-labelledby="titre-video">
+    <section class="appel" aria-labelledby="titre-video" id="formation">
       <h2 class="label reveal" id="titre-video" style="--d: 5">// Formation vidéo</h2>
 
       <div class="appel__carte reveal" style="--d: 5">
@@ -2289,6 +2387,28 @@
           bouton.textContent = 'Envoyer la capture';
           afficher('L\'envoi n\'a pas marché. Vérifie ta connexion et réessaie. Si ça bloque encore, écris à ' + MAIL + '.', 'est-erreur');
         });
+      });
+    })();
+
+    /* Bannière « Nos formations » : recopie le lot (défilement sans coupure),
+       vitesse selon la longueur du texte, et clic → formation ouverte. */
+    (function () {
+      var banniere = document.getElementById('banniere-formations');
+      if (!banniere) return;
+      var piste = banniere.querySelector('.banniere__piste');
+      var lot = piste.querySelector('.banniere__lot');
+      var copie = lot.cloneNode(true);
+      copie.setAttribute('aria-hidden', 'true');
+      piste.appendChild(copie);
+      piste.style.setProperty('--duree', Math.max(14, Math.round(lot.textContent.length / 7)) + 's');
+
+      banniere.addEventListener('click', function (e) {
+        var cible = document.getElementById('formation');
+        if (!cible) return;
+        e.preventDefault();
+        cible.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var ouvrir = document.getElementById('ouvrir-formation');
+        if (ouvrir && !ouvrir.hidden) setTimeout(function () { ouvrir.click(); }, 450);
       });
     })();
   </script>
